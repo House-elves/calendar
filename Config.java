@@ -65,7 +65,6 @@ public class Config {
             c.weeksAhead = 6;
         }
         c.hideDeclined = Boolean.parseBoolean(raw.getOrDefault("HIDE_DECLINED", "true"));
-        if (c.calendars.isEmpty()) throw new IllegalStateException("Paste a calendar's private iCal address in Settings, then Refresh calendars.");
         return c;
     }
 }

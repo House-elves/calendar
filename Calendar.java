@@ -49,7 +49,7 @@ import java.util.regex.Pattern;
  * than one calendar is saved once, with both. Without --save it prints what it read (the desk's dry run). It only
  * reads: it never changes a calendar, and sends nothing anywhere.
  */
-@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.1.0", description = "Reads your calendars for Elf Desk")
+@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.1.1", description = "Reads your calendars for Elf Desk")
 public class Calendar implements Callable<Integer> {
 
     static final ObjectMapper JSON = new ObjectMapper();
@@ -69,6 +69,16 @@ public class Calendar implements Callable<Integer> {
             // The end of a failed run's log is what its tab shows: say what to do, not a stack trace.
             System.err.println(e.getMessage());
             return 1;
+        }
+        if (config.calendars.isEmpty()) {
+            // Nothing set up yet, as on the desk's first run right after install: that's not a failure, just nothing to read.
+            System.out.println("No calendar set yet. Paste a calendar's private iCal address in Settings, then Refresh calendars.");
+            if (save) {
+                // All addresses removed: drop what was saved, so the tab shows how to start again.
+                for (int slot : config.unused) Files.deleteIfExists(EVENTS.resolve("cal-" + slot + ".json"));
+                Files.deleteIfExists(EVENTS.resolve("events.json"));
+            }
+            return 0;
         }
         ZoneId here = ZoneId.systemDefault();
         LocalDate today = LocalDate.now(here);

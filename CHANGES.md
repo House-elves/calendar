@@ -3,6 +3,11 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.1.1
+
+- Fixed: its first refresh, right after you add it, no longer shows as a failed run before you've pasted a calendar's
+  address. With no calendar set it just says where to paste one.
+
 ## 0.1.0
 
 - Puts up to three Google and Outlook calendars together in one day, week or month view, each in its own colour,
