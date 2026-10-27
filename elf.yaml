@@ -1,9 +1,9 @@
 # A House Elves elf: what Elf Desk needs to install, set up and run calendar. AGENTS.md says what each field means.
 name: calendar
 title: Calendar
-version: 0.2.3
+version: 0.3.0
 author: "@phillip-kruger"
-description: Puts all your calendars, Gmail, Google Workspace, Office 365, iCloud or any other with an iCal address, together in one day, week or month view, with every event's details and a link to join each meeting.
+description: Puts all your calendars, Gmail, Google Workspace, Office 365, iCloud or any other with an iCal address or .ics file, together in one day, week or month view, with every event's details and a link to join each meeting.
 main: Calendar.java
 config: ~/.config/calendar/config
 tools: []
@@ -11,7 +11,7 @@ tools: []
 # What it reads and writes, in plain words: the desk shows these before you install it, so they must be true and
 # complete. Name every place outside this machine it reaches, and say when it waits for your click.
 reads:
-  - "Your calendars, through the private iCal addresses you add in its Settings, from the server each address names: Google Calendar (calendar.google.com) for Gmail and Google Workspace, Outlook (outlook.office365.com) for Office 365, iCloud, or any other. It reads nothing else."
+  - "Your calendars, through the private iCal addresses you add in its Settings, from the server each address names: Google Calendar (calendar.google.com) for Gmail and Google Workspace, Outlook (outlook.office365.com) for Office 365, iCloud, or any other. And the .ics files on this machine you add there instead, for a calendar that has no such address. It reads nothing else."
 writes:
   - Nothing outside this machine. It saves the events it read in its own folder, so its tab can show them, and the calendars you add or remove in its config file.
 
@@ -80,7 +80,7 @@ actions:
     ask: false
     params:
       name: {max: 40, pattern: "[\\p{L}\\p{N} ._'&()+-]{1,40}"}
-      address: {max: 500, pattern: "(?i)(https|webcal)://[\\x21-\\x7e]{3,490}"}
+      address: {max: 500, pattern: "(?i)((https|webcal)://[\\x21-\\x7e]{3,490}|(~/|/|file:/)\\P{Cntrl}{0,490}\\.ics)"}
   remove-calendar:
     label: Remove calendar
     confirm: Remove this calendar? You'll need its iCal address to add it again.

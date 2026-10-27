@@ -495,7 +495,7 @@ class CalendarSettings extends LitElement {
         const form = ev.target;
         const name = form.name.value.trim(), address = form.address.value.trim();
         if (!name || !address) {
-            this._error = 'Give it a name and paste its iCal address.';
+            this._error = 'Give it a name and paste its iCal address or .ics file.';
             return;
         }
         if (await this._act('add-calendar', { name, address })) {
@@ -521,8 +521,8 @@ class CalendarSettings extends LitElement {
             ${full ? html`<p class="help">That's ${this._max}, as many as it reads. Remove one to add another.</p>` : html`
                 <form @submit=${this._add}>
                     <label>Name<input name="name" type="text" maxlength="40" placeholder="Work" autocomplete="off"></label>
-                    <label>Private iCal address<input name="address" type="password" maxlength="500"
-                        placeholder="https://… or webcal://…" autocomplete="off"></label>
+                    <label>Private iCal address or .ics file<input name="address" type="password" maxlength="500"
+                        placeholder="https://…, webcal://… or ~/….ics" autocomplete="off"></label>
                     <button type="submit" ?disabled=${this._busy}>Add calendar</button>
                 </form>`}
             <div class="help steps">
@@ -531,7 +531,12 @@ class CalendarSettings extends LitElement {
                 <p><b>Outlook</b> (Office 365, Outlook.com): not the calendar's own Sharing and permissions, which only
                     invites people. Click the gear at the top right of Outlook for Settings, then Calendar, Shared
                     calendars. Under Publish a calendar, pick the calendar and Can view all details, click Publish, then
-                    copy the ICS link. If there's no Publish a calendar, your admin has turned it off.</p>
+                    copy the ICS link.</p>
+                <p><b>Outlook with no Shared calendars or Publish a calendar</b>: your admin has turned publishing off.
+                    Ask them to allow it, or save the calendar as an .ics file and paste its path here instead of an
+                    address, like ~/Documents/work.ics. In Outlook for Windows (the classic one): File, Save Calendar,
+                    More Options, Full details, the dates you want. It's read again each refresh, so save over the same
+                    file when you want it up to date.</p>
                 <p><b>iCloud</b>: share the calendar as a Public Calendar and copy its link.</p>
                 <p><b>Any other calendar</b> with an iCal (.ics) address works too.</p>
                 <p>Anyone with the address can read the calendar, so it's kept like a password and never shown again.</p>

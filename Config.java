@@ -57,7 +57,7 @@ public class Config {
             }
             URI uri = address(address);
             if (uri == null) {
-                throw new IllegalStateException(name + "'s address isn't a calendar's https:// or webcal:// address."
+                throw new IllegalStateException(name + "'s address isn't a calendar's https:// or webcal:// address, or an .ics file."
                         + " Remove it in Settings and add it again with its iCal address.");
             }
             c.calendars.add(new Cal(i, name, uri));
@@ -76,9 +76,13 @@ public class Config {
         return name.isEmpty() ? "Calendar " + slot : name;
     }
 
-    /** An iCal address as it's read: https only (webcal:// is the same address), or null if it isn't one. */
+    /**
+     * An iCal address as it's read: https only (webcal:// is the same address), or an .ics file on this machine, for a
+     * calendar whose account won't publish one. Null if it's neither.
+     */
     static URI address(String address) {
         address = address.strip();
+        if (address.startsWith("/") || address.startsWith("~/") || address.regionMatches(true, 0, "file:", 0, 5)) return file(address);
         // Outlook and iCloud hand out webcal:// for the same https address.
         if (address.regionMatches(true, 0, "webcal://", 0, 9)) address = "https://" + address.substring(9);
         try {
@@ -90,8 +94,26 @@ public class Config {
         }
     }
 
+    /** An .ics file's path as a file: address, or null if it isn't a whole path to an .ics file. */
+    static URI file(String path) {
+        try {
+            Path p = path.regionMatches(true, 0, "file:", 0, 5) ? Path.of(URI.create(path))
+                    : path.startsWith("~/") ? Path.of(System.getProperty("user.home"), path.substring(2)) : Path.of(path);
+            p = p.normalize();
+            if (!p.isAbsolute() || p.getFileName() == null || !p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".ics")) return null;
+            return p.toUri();
+        } catch (IllegalArgumentException | java.nio.file.FileSystemNotFoundException e) {
+            return null;
+        }
+    }
+
+    static boolean isFile(URI address) {
+        return "file".equalsIgnoreCase(address.getScheme());
+    }
+
     /** Where a calendar lives, to show next to its name: the server's name, never the private part of the address. */
     static String where(URI address) {
+        if (isFile(address)) return "File on this machine";
         String host = address.getHost().toLowerCase(Locale.ROOT);
         if (host.equals("calendar.google.com")) return "Google Calendar";
         if (host.startsWith("outlook.") || host.endsWith(".outlook.com")) return "Outlook";
@@ -106,7 +128,11 @@ public class Config {
         name = name.strip();
         if (!NAME.matcher(name).matches()) throw new IllegalArgumentException("Give it a short name: letters, digits and spaces, up to 40.");
         URI uri = address(address);
-        if (uri == null) throw new IllegalArgumentException("That isn't an iCal address. It starts with https:// or webcal://.");
+        if (uri == null) {
+            throw new IllegalArgumentException("That isn't an iCal address or .ics file. An address starts with https:// or webcal://;"
+                    + " a file is its whole path, like ~/Documents/work.ics.");
+        }
+        if (isFile(uri) && !Files.isRegularFile(Path.of(uri))) throw new IllegalArgumentException("There's no file at " + address.strip() + ".");
         Map<String, String> raw = raw();
         int free = 0;
         for (int i = MAX; i >= 1; i--) {

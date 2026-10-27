@@ -3,7 +3,7 @@
 # calendar
 
 An elf for [Elf Desk](https://github.com/House-elves/elf-desk): **Calendar** puts all your calendars (Gmail, Google
-Workspace, Office 365, iCloud, or anything else with an iCal address, as many as you like) together in one **Day**,
+Workspace, Office 365, iCloud, or anything else with an iCal address or `.ics` file, as many as you like) together in one **Day**,
 **Week** or **Month** view. Each calendar has its
 own colour and a checkbox to hide it. A meeting that's on more than one calendar shows once, marked with each.
 
@@ -16,7 +16,8 @@ week to **Weeks ahead** (6 unless you change it). It saves the events on this ma
 even offline. If one calendar can't be read, it keeps showing what it read last time and says so.
 
 - **Reads:** your calendars, through the private iCal addresses you add, from the server each one names: Google
-  Calendar (calendar.google.com), Outlook (outlook.office365.com), iCloud, or any other. Nothing else.
+  Calendar (calendar.google.com), Outlook (outlook.office365.com), iCloud, or any other. And any `.ics` file on this
+  machine you add instead of an address. Nothing else.
 - **Writes:** nothing outside this machine. The calendars you add are kept in `~/.config/calendar/config`, and the
   events are saved in `~/.config/calendar/events/`. It never accepts, declines, creates or changes anything on a
   calendar.
@@ -31,7 +32,12 @@ even offline. If one calendar can't be read, it keeps showing what it read last 
    - **Outlook on the web (Office 365, Outlook.com):** not the calendar's own *Sharing and permissions*, which only
      invites people by email. Click the gear at the top right of Outlook for *Settings*, then *Calendar*, *Shared
      calendars*. Under *Publish a calendar*, pick the calendar and *Can view all details* (or meeting links are left
-     out), click *Publish*, then copy the ICS link. If there's no *Publish a calendar*, your admin has turned it off.
+     out), click *Publish*, then copy the ICS link.
+   - **Outlook with no *Shared calendars* or *Publish a calendar*:** your admin has turned publishing off. Ask them to
+     allow it, or save the calendar as an `.ics` file and paste its path instead of an address, like
+     `~/Documents/work.ics`. In Outlook for Windows (the classic one): *File*, *Save Calendar*, *More Options*, *Full
+     details* and the dates you want. It reads the file again at each refresh, so save over the same file to bring it
+     up to date.
    - **iCloud:** share the calendar as a *Public Calendar* and copy its link (`webcal://` is fine).
    - **Anything else** that gives you an iCal (`.ics`) address works the same way.
 3. It reads them straight away; **Refresh calendars** reads them again.

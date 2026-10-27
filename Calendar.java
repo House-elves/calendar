@@ -44,13 +44,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * calendar: reads your calendars through their private iCal addresses (Google Calendar, Outlook, iCloud or any other)
- * and saves their events, from the start of last week to some weeks ahead, for its tab on Elf Desk. An event that's
- * on more than one calendar is saved once, with each. Without --save it prints what it read (the desk's dry run).
+ * calendar: reads your calendars through their private iCal addresses (Google Calendar, Outlook, iCloud or any other),
+ * or from .ics files on this machine, and saves their events, from the start of last week to some weeks ahead, for its
+ * tab on Elf Desk. An event that's on more than one calendar is saved once, with each. Without --save it prints what it read (the desk's dry run).
  * With --action it answers its Settings list: the calendars, adding one, removing one. It only reads: it never
  * changes a calendar, and sends nothing anywhere.
  */
-@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.2.3", description = "Reads your calendars for Elf Desk")
+@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.3.0", description = "Reads your calendars for Elf Desk")
 public class Calendar implements Callable<Integer> {
 
     static final ObjectMapper JSON = new ObjectMapper();
@@ -192,6 +192,7 @@ public class Calendar implements Callable<Integer> {
     // ---- reading a calendar ----
 
     static String read(HttpClient http, URI address) throws Exception {
+        if (Config.isFile(address)) return readFile(Path.of(address));
         HttpRequest req = HttpRequest.newBuilder(address).timeout(Duration.ofSeconds(90))
                 .header("User-Agent", "calendar (House Elves)").GET().build();
         HttpResponse<java.io.InputStream> res = http.send(req, HttpResponse.BodyHandlers.ofInputStream());
@@ -210,6 +211,15 @@ public class Calendar implements Callable<Integer> {
             }
             return text;
         }
+    }
+
+    /** An .ics file on this machine, read afresh each time, so whatever keeps it up to date shows here. */
+    static String readFile(Path file) throws IOException {
+        if (!Files.isRegularFile(file)) throw new IOException("its .ics file isn't there any more. Save it again, or remove it in Settings and add where it is now.");
+        if (Files.size(file) > MAX_ICS_BYTES) throw new IOException("the calendar is too big to read");
+        String text = Files.readString(file, StandardCharsets.UTF_8);
+        if (!text.stripLeading().startsWith("BEGIN:VCALENDAR")) throw new IOException("its file isn't a calendar. Save the calendar as an iCalendar (.ics) file.");
+        return text;
     }
 
     /** What went wrong, without the address: it's a secret. */

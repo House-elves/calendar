@@ -3,6 +3,14 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.3.0
+
+- New: a calendar can be an .ics file on this machine instead of an address. If your Outlook has no Shared calendars
+  or Publish a calendar, because your admin turned publishing off, save the calendar as an .ics file (in classic
+  Outlook for Windows: File, Save Calendar, More Options, Full details) and paste its path, like
+  ~/Documents/work.ics, where you'd paste an address. It's read again at each refresh, so save over the same file to
+  bring it up to date.
+
 ## 0.2.3
 
 - Clearer: Settings now says where Outlook's iCal address really is: the gear at the top right of Outlook, then
