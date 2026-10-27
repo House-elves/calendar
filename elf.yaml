@@ -1,42 +1,67 @@
-# A House Elves elf: what Elf Desk needs to install, set up and run my-elf. AGENTS.md says what each field means.
-name: my-elf
-title: My elf
+# A House Elves elf: what Elf Desk needs to install, set up and run calendar. AGENTS.md says what each field means.
+name: calendar
+title: Calendar
 version: 0.1.0
-author: "@your-login"
-description: Reads a news feed and lists what's new since you last looked, for its tab.
-main: MyElf.java
-config: ~/.config/my-elf/config
-tools: [claude]
+author: "@phillip-kruger"
+description: Puts your Gmail, Google Workspace and Office 365 calendars together in one day, week or month view, with every event's details and a link to join each meeting.
+main: Calendar.java
+config: ~/.config/calendar/config
+tools: []
 
 # What it reads and writes, in plain words: the desk shows these before you install it, so they must be true and
 # complete. Name every place outside this machine it reaches, and say when it waits for your click.
 reads:
-  - The feed you give it (RSS or Atom), over the internet.
-  - When Sum up is on, the feed's new items (Claude reads them, with no tools).
+  - "Your calendars, through the private iCal addresses you give it: Google Calendar (calendar.google.com) for Gmail and Google Workspace, and Outlook (outlook.office365.com) for Office 365."
 writes:
-  - Nothing outside this machine. What it read is saved for its tab on the desk.
+  - Nothing outside this machine. It saves the events it read in its own folder, so its tab can show them.
 
 settings:
-  - key: FEED_URL
-    label: Feed
-    help: The address of an RSS or Atom feed, like https://quarkus.io/feed.xml.
+  - key: CAL1_NAME
+    label: First calendar's name
+    help: A short name for it on the desk, like Gmail.
     kind: text
-  - key: MAX_ITEMS
-    label: Items to show
-    help: The newest this many from each read.
+    default: Gmail
+  - key: CAL1_ICS_SECRET
+    label: First calendar's address
+    help: "Its private iCal address. In Google Calendar: Settings, your calendar, Integrate calendar, Secret address in iCal format. In Outlook on the web: Settings, Calendar, Shared calendars, Publish a calendar with Can view all details, then copy the ICS link. Leave it empty to skip this calendar."
+    kind: secret
+    optional: true
+  - key: CAL2_NAME
+    label: Second calendar's name
+    help: A short name for it on the desk, like Red Hat.
+    kind: text
+    default: Red Hat
+  - key: CAL2_ICS_SECRET
+    label: Second calendar's address
+    help: Its private iCal address, found the same way as the first. If your work's Google account has no Secret address field, your admin has turned it off. Leave it empty to skip this calendar.
+    kind: secret
+    optional: true
+  - key: CAL3_NAME
+    label: Third calendar's name
+    help: A short name for it on the desk, like IBM.
+    kind: text
+    default: IBM
+  - key: CAL3_ICS_SECRET
+    label: Third calendar's address
+    help: "Its private iCal address. For Office 365: Outlook on the web, Settings, Calendar, Shared calendars, Publish a calendar, choose Can view all details (otherwise meeting links are left out), then copy the ICS link. Leave it empty to skip this calendar."
+    kind: secret
+    optional: true
+  - key: WEEKS_AHEAD
+    label: Weeks ahead
+    help: How far ahead to read your calendars, from 1 to 26 weeks.
     kind: int
     min: 1
-    max: 200
-    default: "30"
-  - key: SUM_UP
-    label: Sum up with Claude
-    help: A line or two about what's new, on top of the list.
+    max: 26
+    default: "6"
+  - key: HIDE_DECLINED
+    label: Hide declined meetings
+    help: Leave out meetings you've declined, where the calendar says so.
     kind: bool
-    default: "false"
+    default: "true"
 
 commands:
-  read:
-    label: Read the feed
+  refresh:
+    label: Refresh calendars
     args: [--save]
   dry-run:
     label: Read without saving
@@ -44,20 +69,11 @@ commands:
 
 dry-run: dry-run
 
-# Its tab (and dashboard card), drawn by ui/my-elf.js in the desk's sandboxed frame. It reads only what it saved.
+# Its tab (and dashboard card), drawn by ui/calendar.js in the desk's sandboxed frame. It reads only what it saved.
 tab:
-  page: ui/my-elf.js
+  page: ui/calendar.js
   card: true
 refresh:
-  command: read
-  schedule: "Mon..Fri *-*-* 07:00"
-data: [runs, done]
-
-actions:
-  done:
-    label: Mark an item read
-    args: [--action=done]
-    ask: false
-    params:
-      # Every value is checked against its pattern before the elf sees it: keep patterns as tight as the value allows.
-      id: {max: 500, pattern: "\\P{Cntrl}{1,500}"}
+  command: refresh
+  schedule: "Mon..Fri *-*-* 7..18:00"
+data: [events]

@@ -1,27 +1,41 @@
 <img src="https://raw.githubusercontent.com/House-elves/elf-desk/main/docs/brand/mark.svg" width="72" alt="House Elves logo: a checkmark that ends in an elf's hat">
 
-# elf-template
+# calendar
 
-The elf to start a new [House Elves](https://github.com/House-elves) elf from, and the guide to writing one:
-[AGENTS.md](AGENTS.md). Elf Desk's Elf Maker builds new elves from it too.
+An elf for [Elf Desk](https://github.com/House-elves/elf-desk): **Calendar** puts up to three calendars (say Gmail, a
+Google Workspace one and an Office 365 one) together in one **Day**, **Week** or **Month** view. Each calendar has its
+own colour and a checkbox to hide it. A meeting that's on more than one calendar shows once, marked with each.
 
-As it is, it's a working elf, **My elf**. It reads a news feed (RSS or Atom) and lists its newest items in its tab,
-with what you haven't read first. **Done** marks an item read. With **Sum up with Claude** on, Claude adds a line or
-two about what's new. It reads the feed on weekday mornings, and its dashboard card says how many items are new.
+Click an event to see everything in it: time, place, organiser, who's invited, the description and its calendar. A
+meeting has a **Join** button for its Google Meet, Teams, Zoom or Webex link, and the other links in it work too.
+Its dashboard card says when your next meeting starts, like "Team sync in 25 minutes".
 
-- **Reads:** the feed you give it, over the internet. With Sum up on, Claude reads the new items, with no tools.
-- **Writes:** nothing outside this machine. What it read is saved in `~/.config/my-elf/runs/`, and what you marked
-  read in `~/.config/my-elf/done/`.
+It reads every hour from 7:00 to 18:00 on weekdays, and when you click **Refresh calendars**, from the start of last
+week to **Weeks ahead** (6 unless you change it). It saves the events on this machine, so the tab opens straight away,
+even offline. If one calendar can't be read, it keeps showing what it read last time and says so.
 
-## Making your own elf from it
+- **Reads:** your calendars, through the private iCal addresses you give it: Google Calendar
+  (calendar.google.com) and Outlook (outlook.office365.com). Nothing else.
+- **Writes:** nothing outside this machine. The events are saved in `~/.config/calendar/events/`. It never accepts,
+  declines, creates or changes anything on a calendar.
 
-1. Click **Use this template** on GitHub, or copy the files.
-2. Rename `my-elf` and `MyElf` everywhere, then change what it does. [AGENTS.md](AGENTS.md) says how each part works.
-3. Check it: `jbang https://github.com/House-elves/elf-runner/blob/main/ElfRunner.java --check-elf .`
-4. Push it and tag the repo `house-elf`. It shows up on Elf Desk's **+** page.
+## Adding it
+
+1. On Elf Desk, click **+** and pick **Calendar**.
+2. In its settings, paste each calendar's private iCal address and give it a short name:
+   - **Google Calendar:** Settings, your calendar, *Integrate calendar*, *Secret address in iCal format*. If a work
+     account has no such field, your admin has turned it off.
+   - **Outlook on the web (Office 365):** Settings, Calendar, *Shared calendars*, *Publish a calendar*, choose *Can
+     view all details* (or meeting links are left out), then copy the ICS link.
+3. Click **Refresh calendars**.
+
+Anyone who has one of these addresses can read that calendar, so treat it like a password. The desk keeps it in
+`~/.config/calendar/config` and never shows it again.
 
 ## Running it by hand
 
-    mkdir -p ~/.config/my-elf && echo 'FEED_URL=https://quarkus.io/feed.xml' > ~/.config/my-elf/config
-    jbang MyElf.java            # prints what it read, saves nothing
-    jbang MyElf.java --save     # saved for its tab on Elf Desk
+    mkdir -p ~/.config/calendar && echo 'CAL1_ICS_SECRET=https://calendar.google.com/calendar/ical/…/basic.ics' > ~/.config/calendar/config
+    jbang Calendar.java            # prints what it read, saves nothing
+    jbang Calendar.java --save     # saved for its tab on Elf Desk
+
+Check it with `jbang https://github.com/House-elves/elf-runner/blob/main/ElfRunner.java --check-elf .`
