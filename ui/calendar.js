@@ -457,6 +457,8 @@ class CalendarSettings extends LitElement {
         form { display: grid; grid-template-columns: minmax(8rem, 1fr) minmax(12rem, 3fr) auto; gap: 8px; align-items: end; }
         label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
         .help { margin: 0; font-size: 13px; color: var(--muted); }
+        .steps { display: grid; gap: 6px; }
+        .steps p { margin: 0; }
         .empty { margin: 0; color: var(--muted); font-size: 14px; }
         input { width: 100%; box-sizing: border-box; }
     `];
@@ -523,12 +525,15 @@ class CalendarSettings extends LitElement {
                         placeholder="https://… or webcal://…" autocomplete="off"></label>
                     <button type="submit" ?disabled=${this._busy}>Add calendar</button>
                 </form>`}
-            <p class="help"><b>Google Calendar</b> (Gmail, Google Workspace): Settings, your calendar, Integrate calendar,
-                Secret address in iCal format. If a work account has no such field, your admin has turned it off.
-                <b>Outlook</b> (Office 365, Outlook.com): Settings, Calendar, Shared calendars, Publish a calendar with Can view
-                all details, then copy the ICS link. <b>iCloud</b>: share the calendar as a Public Calendar and copy its link.
-                Any other calendar with an iCal (.ics) address works too. Anyone with the address can read the calendar,
-                so it's kept like a password and never shown again.</p>`;
+            <div class="help steps">
+                <p><b>Google Calendar</b> (Gmail, Google Workspace): Settings, your calendar, Integrate calendar,
+                    Secret address in iCal format. If a work account has no such field, your admin has turned it off.</p>
+                <p><b>Outlook</b> (Office 365, Outlook.com): Settings, Calendar, Shared calendars, Publish a calendar with
+                    Can view all details, then copy the ICS link.</p>
+                <p><b>iCloud</b>: share the calendar as a Public Calendar and copy its link.</p>
+                <p><b>Any other calendar</b> with an iCal (.ics) address works too.</p>
+                <p>Anyone with the address can read the calendar, so it's kept like a password and never shown again.</p>
+            </div>`;
     }
 }
 

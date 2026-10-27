@@ -3,6 +3,11 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.2.2
+
+- Clearer: in Settings, where to find each kind of calendar's iCal address (Google Calendar, Outlook, iCloud, any
+  other) now starts on a line of its own, so it's easier to find yours.
+
 ## 0.2.1
 
 - Fixed: the Name box in Settings, under Your calendars, now looks like the address box next to it.
