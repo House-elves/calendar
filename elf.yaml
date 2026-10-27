@@ -1,0 +1,63 @@
+# A House Elves elf: what Elf Desk needs to install, set up and run my-elf. AGENTS.md says what each field means.
+name: my-elf
+title: My elf
+version: 0.1.0
+author: "@your-login"
+description: Reads a news feed and lists what's new since you last looked, for its tab.
+main: MyElf.java
+config: ~/.config/my-elf/config
+tools: [claude]
+
+# What it reads and writes, in plain words: the desk shows these before you install it, so they must be true and
+# complete. Name every place outside this machine it reaches, and say when it waits for your click.
+reads:
+  - The feed you give it (RSS or Atom), over the internet.
+  - When Sum up is on, the feed's new items (Claude reads them, with no tools).
+writes:
+  - Nothing outside this machine. What it read is saved for its tab on the desk.
+
+settings:
+  - key: FEED_URL
+    label: Feed
+    help: The address of an RSS or Atom feed, like https://quarkus.io/feed.xml.
+    kind: text
+  - key: MAX_ITEMS
+    label: Items to show
+    help: The newest this many from each read.
+    kind: int
+    min: 1
+    max: 200
+    default: "30"
+  - key: SUM_UP
+    label: Sum up with Claude
+    help: A line or two about what's new, on top of the list.
+    kind: bool
+    default: "false"
+
+commands:
+  read:
+    label: Read the feed
+    args: [--save]
+  dry-run:
+    label: Read without saving
+    args: []
+
+dry-run: dry-run
+
+# Its tab (and dashboard card), drawn by ui/my-elf.js in the desk's sandboxed frame. It reads only what it saved.
+tab:
+  page: ui/my-elf.js
+  card: true
+refresh:
+  command: read
+  schedule: "Mon..Fri *-*-* 07:00"
+data: [runs, done]
+
+actions:
+  done:
+    label: Mark an item read
+    args: [--action=done]
+    ask: false
+    params:
+      # Every value is checked against its pattern before the elf sees it: keep patterns as tight as the value allows.
+      id: {max: 500, pattern: "\\P{Cntrl}{1,500}"}
