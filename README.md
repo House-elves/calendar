@@ -28,8 +28,10 @@ even offline. If one calendar can't be read, it keeps showing what it read last 
    click **Add calendar**. Add as many as you like (up to 20); **Remove** takes one off again.
    - **Google Calendar:** Settings, your calendar, *Integrate calendar*, *Secret address in iCal format*. If a work
      account has no such field, your admin has turned it off.
-   - **Outlook on the web (Office 365, Outlook.com):** Settings, Calendar, *Shared calendars*, *Publish a calendar*,
-     choose *Can view all details* (or meeting links are left out), then copy the ICS link.
+   - **Outlook on the web (Office 365, Outlook.com):** not the calendar's own *Sharing and permissions*, which only
+     invites people by email. Click the gear at the top right of Outlook for *Settings*, then *Calendar*, *Shared
+     calendars*. Under *Publish a calendar*, pick the calendar and *Can view all details* (or meeting links are left
+     out), click *Publish*, then copy the ICS link. If there's no *Publish a calendar*, your admin has turned it off.
    - **iCloud:** share the calendar as a *Public Calendar* and copy its link (`webcal://` is fine).
    - **Anything else** that gives you an iCal (`.ics`) address works the same way.
 3. It reads them straight away; **Refresh calendars** reads them again.

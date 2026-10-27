@@ -528,8 +528,10 @@ class CalendarSettings extends LitElement {
             <div class="help steps">
                 <p><b>Google Calendar</b> (Gmail, Google Workspace): Settings, your calendar, Integrate calendar,
                     Secret address in iCal format. If a work account has no such field, your admin has turned it off.</p>
-                <p><b>Outlook</b> (Office 365, Outlook.com): Settings, Calendar, Shared calendars, Publish a calendar with
-                    Can view all details, then copy the ICS link.</p>
+                <p><b>Outlook</b> (Office 365, Outlook.com): not the calendar's own Sharing and permissions, which only
+                    invites people. Click the gear at the top right of Outlook for Settings, then Calendar, Shared
+                    calendars. Under Publish a calendar, pick the calendar and Can view all details, click Publish, then
+                    copy the ICS link. If there's no Publish a calendar, your admin has turned it off.</p>
                 <p><b>iCloud</b>: share the calendar as a Public Calendar and copy its link.</p>
                 <p><b>Any other calendar</b> with an iCal (.ics) address works too.</p>
                 <p>Anyone with the address can read the calendar, so it's kept like a password and never shown again.</p>

@@ -50,7 +50,7 @@ import java.util.regex.Pattern;
  * With --action it answers its Settings list: the calendars, adding one, removing one. It only reads: it never
  * changes a calendar, and sends nothing anywhere.
  */
-@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.2.2", description = "Reads your calendars for Elf Desk")
+@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.2.3", description = "Reads your calendars for Elf Desk")
 public class Calendar implements Callable<Integer> {
 
     static final ObjectMapper JSON = new ObjectMapper();

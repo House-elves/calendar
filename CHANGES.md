@@ -3,6 +3,12 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.2.3
+
+- Clearer: Settings now says where Outlook's iCal address really is: the gear at the top right of Outlook, then
+  Calendar, Shared calendars, Publish a calendar. Not the calendar's own Sharing and permissions, which only invites
+  people. If there's no Publish a calendar there, your admin has turned it off.
+
 ## 0.2.2
 
 - Clearer: in Settings, where to find each kind of calendar's iCal address (Google Calendar, Outlook, iCloud, any
