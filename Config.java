@@ -82,6 +82,15 @@ public class Config {
      */
     static URI address(String address) {
         address = address.strip();
+        if (address.regionMatches(true, 0, "microsoft:", 0, 10)) {
+            String account = address.substring(10).toLowerCase(Locale.ROOT);
+            return Microsoft.ACCOUNT.matcher(account).matches() ? URI.create("microsoft:" + account) : null;
+        }
+        int colon = address.indexOf(':');
+        if (colon > 0 && Local.is(address.substring(0, colon))) {
+            String rest = address.substring(colon + 1);
+            return rest.matches("[\\w.@+-]{1,200}(/[\\w.@+-]{1,200}){0,2}") ? URI.create(address.substring(0, colon).toLowerCase(Locale.ROOT) + ":" + rest) : null;
+        }
         if (address.startsWith("/") || address.startsWith("~/") || address.regionMatches(true, 0, "file:", 0, 5)) return file(address);
         // Outlook and iCloud hand out webcal:// for the same https address.
         if (address.regionMatches(true, 0, "webcal://", 0, 9)) address = "https://" + address.substring(9);
@@ -107,6 +116,16 @@ public class Config {
         }
     }
 
+    /** A calendar read through a Microsoft sign-in, not an address: its "address" only names the account. */
+    static boolean isMicrosoft(URI address) {
+        return "microsoft".equalsIgnoreCase(address.getScheme());
+    }
+
+    /** A calendar another app on this machine keeps a copy of: Evolution, Thunderbird or Apple Calendar (see Local). */
+    static boolean isLocal(URI address) {
+        return Local.is(address.getScheme());
+    }
+
     static boolean isFile(URI address) {
         return "file".equalsIgnoreCase(address.getScheme());
     }
@@ -114,6 +133,8 @@ public class Config {
     /** Where a calendar lives, to show next to its name: the server's name, never the private part of the address. */
     static String where(URI address) {
         if (isFile(address)) return "File on this machine";
+        if (isMicrosoft(address)) return "Outlook, signed in";
+        if (isLocal(address)) return Local.app(address.getScheme()) + "'s copy on this machine";
         String host = address.getHost().toLowerCase(Locale.ROOT);
         if (host.equals("calendar.google.com")) return "Google Calendar";
         if (host.startsWith("outlook.") || host.endsWith(".outlook.com")) return "Outlook";
@@ -132,7 +153,34 @@ public class Config {
             throw new IllegalArgumentException("That isn't an iCal address or .ics file. An address starts with https:// or webcal://;"
                     + " a file is its whole path, like ~/Documents/work.ics.");
         }
+        if (isMicrosoft(uri)) throw new IllegalArgumentException("Use Sign in to Microsoft for that.");
+        if (isLocal(uri)) throw new IllegalArgumentException("Pick it under From apps on this machine instead.");
         if (isFile(uri) && !Files.isRegularFile(Path.of(uri))) throw new IllegalArgumentException("There's no file at " + address.strip() + ".");
+        return addAt(name, uri);
+    }
+
+    /** Adds the calendar of a Microsoft account you just signed in to. Signing in again to the same one keeps its slot. */
+    static int addMicrosoft(String name, String account) throws IOException {
+        URI uri = URI.create("microsoft:" + account);
+        Map<String, String> raw = raw();
+        for (int i = 1; i <= MAX; i++) {
+            if (uri.equals(address(raw.getOrDefault("CAL" + i + "_ICS_SECRET", "")))) return i;
+        }
+        return addAt(name.strip(), uri);
+    }
+
+    /** Adds a calendar another app on this machine keeps, if it's one Local found. */
+    static int addLocal(String name, String source) throws IOException {
+        name = name.strip();
+        if (!NAME.matcher(name).matches()) throw new IllegalArgumentException("Give it a short name: letters, digits and spaces, up to 40.");
+        URI uri = address(source);
+        if (uri == null || !isLocal(uri) || Local.find().stream().noneMatch(f -> f.source().equals(uri.toString()))) {
+            throw new IllegalArgumentException("That calendar isn't on this machine any more. Open its app and let it sync, then try again.");
+        }
+        return addAt(name, uri);
+    }
+
+    static int addAt(String name, URI uri) throws IOException {
         Map<String, String> raw = raw();
         int free = 0;
         for (int i = MAX; i >= 1; i--) {

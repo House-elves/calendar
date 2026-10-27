@@ -3,7 +3,8 @@
 # calendar
 
 An elf for [Elf Desk](https://github.com/House-elves/elf-desk): **Calendar** puts all your calendars (Gmail, Google
-Workspace, Office 365, iCloud, or anything else with an iCal address or `.ics` file, as many as you like) together in one **Day**,
+Workspace, Office 365 by address or by signing in to Microsoft, iCloud, the calendars Evolution, Thunderbird or Apple
+Calendar already keep on this machine, or anything else with an iCal address or `.ics` file, as many as you like) together in one **Day**,
 **Week** or **Month** view. Each calendar has its
 own colour and a checkbox to hide it. A meeting that's on more than one calendar shows once, marked with each.
 
@@ -17,9 +18,13 @@ even offline. If one calendar can't be read, it keeps showing what it read last 
 
 - **Reads:** your calendars, through the private iCal addresses you add, from the server each one names: Google
   Calendar (calendar.google.com), Outlook (outlook.office365.com), iCloud, or any other. And any `.ics` file on this
-  machine you add instead of an address. Nothing else.
+  machine you add instead of an address. The copies Evolution (and GNOME Calendar), Thunderbird or Apple Calendar keep
+  on this machine, for the calendars you pick: it copies their database to a folder of its own and reads that, so it
+  never changes or locks their files. And, if you sign in to Microsoft, your Outlook calendar through Microsoft
+  Graph (login.microsoftonline.com, graph.microsoft.com), with permission only to read calendars. Nothing else.
 - **Writes:** nothing outside this machine. The calendars you add are kept in `~/.config/calendar/config`, and the
-  events are saved in `~/.config/calendar/events/`. It never accepts, declines, creates or changes anything on a
+  events are saved in `~/.config/calendar/events/`. A Microsoft sign-in is kept in `~/.config/calendar/microsoft.json`,
+  readable only by you, and goes when you remove its calendar. It never accepts, declines, creates or changes anything on a
   calendar.
 
 ## Adding it
@@ -33,14 +38,49 @@ even offline. If one calendar can't be read, it keeps showing what it read last 
      invites people by email. Click the gear at the top right of Outlook for *Settings*, then *Calendar*, *Shared
      calendars*. Under *Publish a calendar*, pick the calendar and *Can view all details* (or meeting links are left
      out), click *Publish*, then copy the ICS link.
-   - **Outlook with no *Shared calendars* or *Publish a calendar*:** your admin has turned publishing off. Ask them to
-     allow it, or save the calendar as an `.ics` file and paste its path instead of an address, like
-     `~/Documents/work.ics`. In Outlook for Windows (the classic one): *File*, *Save Calendar*, *More Options*, *Full
-     details* and the dates you want. It reads the file again at each refresh, so save over the same file to bring it
-     up to date.
+   - **Outlook with no *Shared calendars* or *Publish a calendar*,** like Outlook on the web at work: your admin has
+     turned publishing off. If Evolution, Thunderbird or Apple Calendar on this machine shows it, add it from there
+     (see below), or click **Sign in to Microsoft** (see further down). In classic Outlook for Windows you can
+     also save the calendar as an `.ics` file (*File*, *Save Calendar*, *More Options*, *Full details*) and paste its
+     path, like `~/Documents/work.ics`, instead of an address; it's read again at each refresh.
    - **iCloud:** share the calendar as a *Public Calendar* and copy its link (`webcal://` is fine).
    - **Anything else** that gives you an iCal (`.ics`) address works the same way.
 3. It reads them straight away; **Refresh calendars** reads them again.
+
+### From apps on this machine
+
+Evolution, Thunderbird and Apple Calendar sign in to your accounts themselves, with your organisation's blessing, and
+keep a copy of each calendar on this machine. Calendar can read that copy, so a work Outlook calendar that Evolution
+shows needs no address and no admin. In Settings, under *From apps on this machine*, click **Add calendar** next to
+one. It's read again at each refresh, and it's as up to date as the app's last sync, so leave the app running (or open
+it now and then).
+
+- **Evolution** and **GNOME Calendar** (which uses Evolution's accounts), also from Flathub: every calendar it has, from
+  Microsoft 365, Exchange, Google, CalDAV or kept only on this machine.
+- **Thunderbird**, also from Flathub or Snap: its calendars, from each profile.
+- **Apple Calendar**, on a Mac: the calendars it keeps as files in `~/Library/Calendars`. macOS asks before letting a
+  program read that folder: give the program that runs Elf Desk *Full Disk Access* in *System Settings*, *Privacy &
+  Security*. Newer versions of macOS keep their calendars in a database instead, which this doesn't read yet.
+
+If the list doesn't show, none of these apps has a calendar here.
+
+### Signing in to Microsoft
+
+Thunderbird and Evolution don't need a published address: you sign in to your Microsoft account, and they read the
+calendar through Microsoft's own interface. **Sign in to Microsoft** does the same. Give the calendar a name and click
+it; Settings shows a code. Open the link it shows (microsoft.com/devicelogin), type the code and sign in as you always
+do. Your password goes only to Microsoft. Calendar asks only to read your calendars and who you are, so it can't
+change or send anything, and it stays signed in until you remove the calendar or your organisation takes it back.
+
+Microsoft only lets an app it knows sign in, so it needs a **Microsoft app ID** in Calendar's settings. To make one,
+in the [Microsoft Entra admin center](https://entra.microsoft.com): *App registrations*, *New registration*, any name,
+*Accounts in any organizational directory and personal Microsoft accounts*, no redirect address. Copy its
+*Application (client) ID* into Calendar's settings. Under *Authentication*, turn on *Allow public client flows*; under
+*API permissions*, add Microsoft Graph's delegated `Calendars.Read` and `User.Read`.
+
+Thunderbird and Evolution work at your organisation because your admin has allowed them. If signing in says your
+organisation has to allow Calendar's app first, send your admin its app ID and ask them to grant it `Calendars.Read`:
+it's the same kind of permission they gave Thunderbird, and less of it.
 
 Anyone who has one of these addresses can read that calendar, so treat it like a password. The desk keeps it in
 `~/.config/calendar/config` and never shows it again.
@@ -50,11 +90,17 @@ Anyone who has one of these addresses can read that calendar, so treat it like a
     echo '{"name":"Holidays","address":"https://calendar.google.com/calendar/ical/en.uk%23holiday%40group.v.calendar.google.com/public/basic.ics"}' \
         | jbang Calendar.java --action=add      # adds a calendar to ~/.config/calendar/config
     echo '{}' | jbang Calendar.java --action=calendars
+    echo '{"name":"Work"}' | jbang Calendar.java --action=microsoft-sign-in   # shows a code to type at microsoft.com/devicelogin
+    echo '{}' | jbang Calendar.java --action=microsoft-check                   # once you have: adds the calendar
+    echo '{}' | jbang Calendar.java --action=local       # what Evolution, Thunderbird or Apple Calendar keep here
+    echo '{"name":"Work","source":"evolution:<its source>"}' | jbang Calendar.java --action=add-local
     echo '{"slot":1}' | jbang Calendar.java --action=remove
     jbang Calendar.java            # prints what it read, saves nothing
     jbang Calendar.java --save     # saved for its tab on Elf Desk
 
-Each calendar is a pair of lines in the config, `CAL<n>_NAME` and `CAL<n>_ICS_SECRET`, for `n` from 1 to 20. The three
+Each calendar is a pair of lines in the config, `CAL<n>_NAME` and `CAL<n>_ICS_SECRET`, for `n` from 1 to 20. A
+calendar you signed in to Microsoft for has `microsoft:` and your account there instead of an address, and one from an
+app on this machine has `evolution:`, `thunderbird:` or `apple:` and where that app keeps it. The three
 *Calendar 1, 2 and 3 from the first version* rows at the bottom of its Settings are those first three addresses, from
 before the list: you don't need them, and one set there already shows in *Your calendars*.
 

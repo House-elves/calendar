@@ -3,6 +3,21 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.5.0
+
+- New: add the calendars Evolution, GNOME Calendar, Thunderbird or Apple Calendar already show, with one click, in
+  Settings under From apps on this machine. Those apps sign in to your work account themselves, so this works even
+  when Outlook won't publish a calendar and your admin hasn't allowed anything else. Calendar reads the copy the app
+  keeps on this machine and never changes it, so it's as up to date as the app's last sync.
+
+## 0.4.0
+
+- New: Sign in to Microsoft, in Settings under Your calendars, for Outlook on the web at work when there's no
+  Publish a calendar and no Save Calendar. It reads your calendar the way Thunderbird and Evolution do: you type a
+  code at microsoft.com/devicelogin and sign in there, and it asks only to read your calendars. It needs a Microsoft
+  app ID in Settings (the README says how to make one), and your admin may have to allow that app, as they allowed
+  Thunderbird.
+
 ## 0.3.0
 
 - New: a calendar can be an .ics file on this machine instead of an address. If your Outlook has no Shared calendars

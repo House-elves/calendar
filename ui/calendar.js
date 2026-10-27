@@ -445,7 +445,8 @@ class CalendarCard extends LitElement {
  */
 class CalendarSettings extends LitElement {
 
-    static properties = { _list: { state: true }, _max: { state: true }, _error: { state: true }, _busy: { state: true } };
+    static properties = { _list: { state: true }, _max: { state: true }, _error: { state: true }, _busy: { state: true },
+        _signin: { state: true }, _found: { state: true } };
 
     static styles = [shared, css`
         :host { display: grid; gap: 14px; }
@@ -461,11 +462,20 @@ class CalendarSettings extends LitElement {
         .steps p { margin: 0; }
         .empty { margin: 0; color: var(--muted); font-size: 14px; }
         input { width: 100%; box-sizing: border-box; }
+        form.ms { grid-template-columns: minmax(8rem, 1fr) auto; }
+        .code { display: grid; gap: 6px; font-size: 14px; }
+        .code p { margin: 0; }
+        .code b { font-family: var(--mono, monospace); font-size: 18px; letter-spacing: 0.08em; user-select: all; }
     `];
+
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        clearTimeout(this._poll);
+    }
 
     connectedCallback() {
         super.connectedCallback();
-        this._act('calendars', {});
+        this._act('calendars', {}).then(() => this._findLocal());
     }
 
     /** Asks for one of its list's actions; the answer is always the list as it is now. */
@@ -477,6 +487,7 @@ class CalendarSettings extends LitElement {
             const a = r?.result ?? r;
             if (Array.isArray(a?.calendars)) this._list = a.calendars;
             if (a?.max) this._max = a.max;
+            this._answer = a;
             if (a?.error) {
                 this._error = a.error;
                 return false;
@@ -504,8 +515,62 @@ class CalendarSettings extends LitElement {
         }
     }
 
+    /**
+     * Signs in to Microsoft the way Thunderbird and Evolution do: it shows a code to type at Microsoft's page in your
+     * browser, then asks every few seconds whether you have, until the calendar is in the list.
+     */
+    async _signIn(ev) {
+        ev.preventDefault();
+        const name = ev.target.name.value.trim();
+        if (!name) {
+            this._error = 'Give it a name first, like Work.';
+            return;
+        }
+        clearTimeout(this._poll);
+        this._signin = null;
+        if (!(await this._act('microsoft-sign-in', { name }))) return;
+        const a = this._answer;
+        // Only Microsoft's own sign-in page, as the script checked it.
+        const url = /^https:\/\/((www\.)?microsoft\.com|login\.microsoftonline\.com)\//.test(a?.url ?? '') ? a.url : 'https://microsoft.com/devicelogin';
+        this._signin = { code: a?.code, url };
+        ev.target.reset();
+        const wait = Math.max(3, Math.min(30, a?.interval ?? 5)) * 1000;
+        const check = async () => {
+            if (!this._signin) return;
+            const ok = await this._act('microsoft-check', {});
+            if (!ok) {
+                this._signin = null;
+                return;
+            }
+            if (this._answer?.waiting) {
+                this._poll = setTimeout(check, wait);
+                return;
+            }
+            this._signin = null;
+            elf.run('refresh').catch(() => {});
+        };
+        this._poll = setTimeout(check, wait);
+    }
+
+    /** The calendars Evolution, Thunderbird or Apple Calendar keep on this machine, to add with one click. */
+    async _findLocal() {
+        if (await this._act('local-calendars', {})) this._found = this._answer?.found ?? [];
+    }
+
+    async _addLocal(f) {
+        // Its name in the app, kept to what a calendar's name may hold here.
+        const name = f.name.replace(/[^\p{L}\p{N} ._'&()+-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 40) || f.app;
+        if (await this._act('add-local-calendar', { name, source: f.source })) {
+            this._findLocal();
+            elf.run('refresh').catch(() => {});
+        }
+    }
+
     async _remove(c) {
-        if (await this._act('remove-calendar', { slot: c.slot })) elf.run('refresh').catch(() => {});
+        if (await this._act('remove-calendar', { slot: c.slot })) {
+            this._findLocal();
+            elf.run('refresh').catch(() => {});
+        }
     }
 
     render() {
@@ -524,7 +589,25 @@ class CalendarSettings extends LitElement {
                     <label>Private iCal address or .ics file<input name="address" type="password" maxlength="500"
                         placeholder="https://…, webcal://… or ~/….ics" autocomplete="off"></label>
                     <button type="submit" ?disabled=${this._busy}>Add calendar</button>
-                </form>`}
+                </form>
+                ${this._signin ? html`<div class="code" role="status">
+                    <p>Open <a href=${this._signin.url} target="_blank" rel="noopener">${this._signin.url}</a>, type this code
+                        and sign in to your work or school account:</p>
+                    <p><b>${this._signin.code}</b></p>
+                    <p class="help">${spinner}Waiting for you to sign in. Your calendar shows up in the list once you have.</p>
+                </div>` : html`
+                <form class="ms" @submit=${this._signIn}>
+                    <label>Or sign in to Outlook instead of pasting an address: name<input name="name" type="text"
+                        maxlength="40" placeholder="Work" autocomplete="off"></label>
+                    <button type="submit" ?disabled=${this._busy}>Sign in to Microsoft</button>
+                </form>`}`}
+            ${this._found?.length ? html`<div class="steps">
+                <p class="help"><b>From apps on this machine</b>: the calendars these apps already keep a copy of. Calendar
+                    reads that copy, so it's as up to date as the app's last sync.</p>
+                <ul>${this._found.map(f => html`<li><span>${f.name}</span><span class="where">${f.app}</span>
+                    <span class="spacer"></span>${f.added ? html`<span class="where">Added</span>` : html`<button class="sm"
+                    ?disabled=${this._busy || full} @click=${() => this._addLocal(f)}>Add calendar</button>`}</li>`)}</ul>
+            </div>` : ''}
             <div class="help steps">
                 <p><b>Google Calendar</b> (Gmail, Google Workspace): Settings, your calendar, Integrate calendar,
                     Secret address in iCal format. If a work account has no such field, your admin has turned it off.</p>
@@ -532,11 +615,13 @@ class CalendarSettings extends LitElement {
                     invites people. Click the gear at the top right of Outlook for Settings, then Calendar, Shared
                     calendars. Under Publish a calendar, pick the calendar and Can view all details, click Publish, then
                     copy the ICS link.</p>
-                <p><b>Outlook with no Shared calendars or Publish a calendar</b>: your admin has turned publishing off.
-                    Ask them to allow it, or save the calendar as an .ics file and paste its path here instead of an
-                    address, like ~/Documents/work.ics. In Outlook for Windows (the classic one): File, Save Calendar,
-                    More Options, Full details, the dates you want. It's read again each refresh, so save over the same
-                    file when you want it up to date.</p>
+                <p><b>Outlook with no Shared calendars or Publish a calendar</b>, like Outlook on the web at work: your
+                    admin has turned publishing off. If Evolution, Thunderbird or Apple Calendar on this machine already
+                    shows it, pick it under From apps on this machine. Or click Sign in to Microsoft: it reads your calendar the way
+                    Thunderbird and Evolution do. It needs a Microsoft app ID in the settings below (the README says how to
+                    get one), and your admin may have to allow that app, as they did for Thunderbird. In classic Outlook
+                    for Windows you can also save the calendar as an .ics file (File, Save Calendar, More Options, Full
+                    details) and paste its path, like ~/Documents/work.ics, instead of an address.</p>
                 <p><b>iCloud</b>: share the calendar as a Public Calendar and copy its link.</p>
                 <p><b>Any other calendar</b> with an iCal (.ics) address works too.</p>
                 <p>Anyone with the address can read the calendar, so it's kept like a password and never shown again.</p>

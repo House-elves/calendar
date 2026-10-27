@@ -2,8 +2,13 @@
 //JAVA 21+
 //DEPS info.picocli:picocli:4.7.6
 //DEPS com.fasterxml.jackson.core:jackson-databind:2.17.2
+//DEPS org.xerial:sqlite-jdbc:3.46.1.3
+//DEPS org.slf4j:slf4j-nop:1.7.36
+//JAVA_OPTIONS --enable-native-access=ALL-UNNAMED
 //SOURCES Config.java
 //SOURCES Ics.java
+//SOURCES Microsoft.java
+//SOURCES Local.java
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -45,12 +50,13 @@ import java.util.regex.Pattern;
 
 /**
  * calendar: reads your calendars through their private iCal addresses (Google Calendar, Outlook, iCloud or any other),
- * or from .ics files on this machine, and saves their events, from the start of last week to some weeks ahead, for its
+ * from .ics files on this machine, from the copies Evolution, Thunderbird or Apple Calendar keep here (see Local.java), or
+ * from Outlook through your Microsoft sign-in (see Microsoft.java), and saves their events, from the start of last week to some weeks ahead, for its
  * tab on Elf Desk. An event that's on more than one calendar is saved once, with each. Without --save it prints what it read (the desk's dry run).
- * With --action it answers its Settings list: the calendars, adding one, removing one. It only reads: it never
+ * With --action it answers its Settings list: the calendars, adding one, signing in to Microsoft, removing one. It only reads: it never
  * changes a calendar, and sends nothing anywhere.
  */
-@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.3.0", description = "Reads your calendars for Elf Desk")
+@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.5.0", description = "Reads your calendars for Elf Desk")
 public class Calendar implements Callable<Integer> {
 
     static final ObjectMapper JSON = new ObjectMapper();
@@ -93,15 +99,18 @@ public class Calendar implements Callable<Integer> {
         System.out.println("Reading " + config.calendars.size() + (config.calendars.size() == 1 ? " calendar" : " calendars")
                 + ", " + fromDay + " to " + toDay.minusDays(1) + "...");
 
-        HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).followRedirects(HttpClient.Redirect.NORMAL).build();
+        HttpClient http = http();
         ArrayNode calendars = JSON.createArrayNode();
         Map<Integer, ArrayNode> bySlot = new LinkedHashMap<>();
         int failed = 0;
         for (Config.Cal cal : config.calendars) {
             ObjectNode status = calendars.addObject().put("slot", cal.slot()).put("name", cal.name());
             try {
-                Ics ics = new Ics(read(http, cal.address()));
-                ArrayNode events = events(ics, cal.slot(), from, to, config.hideDeclined);
+                ArrayNode events = Config.isMicrosoft(cal.address())
+                        ? Microsoft.events(http, cal.address().getSchemeSpecificPart(), cal.slot(), from, to, config.hideDeclined, save)
+                        : Config.isLocal(cal.address())
+                        ? events(new Ics(Local.ics(cal.address().toString())), cal.slot(), from, to, config.hideDeclined)
+                        : events(new Ics(read(http, cal.address())), cal.slot(), from, to, config.hideDeclined);
                 bySlot.put(cal.slot(), events);
                 status.put("readAt", Instant.now().toString()).put("count", events.size());
                 System.out.println(cal.name() + ": " + events.size() + " events");
@@ -162,9 +171,25 @@ public class Calendar implements Callable<Integer> {
                 case "calendars" -> {
                 }
                 case "add" -> out.put("added", Config.add(in.path("name").asText(""), in.path("address").asText("")));
+                case "microsoft-sign-in" -> out.setAll(Microsoft.start(http(), in.path("name").asText("")));
+                case "microsoft-check" -> out.setAll(Microsoft.check(http()));
+                case "local" -> {
+                    // What Evolution, Thunderbird or Apple Calendar keep here, and whether it's in the list already.
+                    Map<String, String> had = Config.raw();
+                    ArrayNode found = out.putArray("found");
+                    for (Local.Found f : Local.find()) {
+                        boolean added = false;
+                        for (int i = 1; i <= Config.MAX; i++) added |= f.source().equals(had.getOrDefault("CAL" + i + "_ICS_SECRET", "").strip());
+                        found.addObject().put("source", f.source()).put("app", f.app()).put("name", clip(f.name(), 200)).put("added", added);
+                    }
+                }
+                case "add-local" -> out.put("added", Config.addLocal(in.path("name").asText(""), in.path("source").asText("")));
                 case "remove" -> {
                     int slot = in.path("slot").asInt(0);
+                    URI was = slot >= 1 && slot <= Config.MAX ? Config.address(Config.raw().getOrDefault("CAL" + slot + "_ICS_SECRET", "")) : null;
                     Config.remove(slot);
+                    // A Microsoft sign-in goes with its calendar: nothing else uses it.
+                    if (was != null && Config.isMicrosoft(was)) Microsoft.forget(was.getSchemeSpecificPart());
                     // Its events go now, not at the next refresh.
                     Files.deleteIfExists(EVENTS.resolve("cal-" + slot + ".json"));
                     out.put("removed", slot);
@@ -173,6 +198,10 @@ public class Calendar implements Callable<Integer> {
             }
         } catch (IllegalArgumentException e) {
             out.put("error", e.getMessage());
+        } catch (IOException e) {
+            out.put("error", "Couldn't reach Microsoft. Are you online?");
+        } catch (InterruptedException e) {
+            out.put("error", "Stopped before it was done.");
         }
         ArrayNode list = out.putArray("calendars");
         Map<String, String> raw = Config.raw();
@@ -182,7 +211,8 @@ public class Calendar implements Callable<Integer> {
             URI address = Config.address(set);
             // One with a bad address is listed too, so it can be removed.
             list.addObject().put("slot", i).put("name", Config.name(raw, i))
-                    .put("where", address == null ? "Not an iCal address" : Config.where(address));
+                    .put("where", address == null ? "Not an iCal address" : Config.where(address)
+                            + (address != null && Config.isMicrosoft(address) ? " as " + address.getSchemeSpecificPart() : ""));
         }
         out.put("max", Config.MAX);
         System.out.println(JSON.writeValueAsString(out));
@@ -190,6 +220,10 @@ public class Calendar implements Callable<Integer> {
     }
 
     // ---- reading a calendar ----
+
+    static HttpClient http() {
+        return HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).followRedirects(HttpClient.Redirect.NORMAL).build();
+    }
 
     static String read(HttpClient http, URI address) throws Exception {
         if (Config.isFile(address)) return readFile(Path.of(address));

@@ -1,9 +1,9 @@
 # A House Elves elf: what Elf Desk needs to install, set up and run calendar. AGENTS.md says what each field means.
 name: calendar
 title: Calendar
-version: 0.3.0
+version: 0.5.0
 author: "@phillip-kruger"
-description: Puts all your calendars, Gmail, Google Workspace, Office 365, iCloud or any other with an iCal address or .ics file, together in one day, week or month view, with every event's details and a link to join each meeting.
+description: Puts all your calendars, Gmail, Google Workspace, Office 365, iCloud, any other with an iCal address or .ics file, or the ones Evolution, Thunderbird or Apple Calendar already keep on this machine, together in one day, week or month view, with every event's details and a link to join each meeting.
 main: Calendar.java
 config: ~/.config/calendar/config
 tools: []
@@ -12,8 +12,10 @@ tools: []
 # complete. Name every place outside this machine it reaches, and say when it waits for your click.
 reads:
   - "Your calendars, through the private iCal addresses you add in its Settings, from the server each address names: Google Calendar (calendar.google.com) for Gmail and Google Workspace, Outlook (outlook.office365.com) for Office 365, iCloud, or any other. And the .ics files on this machine you add there instead, for a calendar that has no such address. It reads nothing else."
+  - "The calendars Evolution (and GNOME Calendar), Thunderbird or Apple Calendar keep on this machine, if you pick one in its Settings: it reads a copy of their files and never changes them."
+  - "Your Outlook calendar through Microsoft Graph (graph.microsoft.com), if you sign in to Microsoft in its Settings (at login.microsoftonline.com), as Thunderbird and Evolution do. It asks only to read your calendars and who you are, so it can't change or send anything."
 writes:
-  - Nothing outside this machine. It saves the events it read in its own folder, so its tab can show them, and the calendars you add or remove in its config file.
+  - Nothing outside this machine. It saves the events it read in its own folder, so its tab can show them, and the calendars you add or remove in its config file. A Microsoft sign-in is kept in its own folder too, readable only by you, and goes when you remove its calendar.
 
 # Your calendars are a list in its Settings pop-up (ui/calendar.js), as many as you like: the add-calendar and
 # remove-calendar actions write them to its config. The three addresses at the end are from before that list; the desk
@@ -32,6 +34,12 @@ settings:
     help: Leave out meetings you've declined, where the calendar says so.
     kind: bool
     default: "true"
+  - key: MICROSOFT_APP_ID
+    label: Microsoft app ID
+    help: Only for Sign in to Microsoft, under Your calendars. The Application (client) ID of an app registered in Microsoft Entra that may read calendars; Calendar's README says how to get one.
+    kind: text
+    default: ""
+    optional: true
   - key: CAL1_ICS_SECRET
     label: Calendar 1 from the first version (not needed)
     help: Leave this. Add your calendars at the top, under Your calendars, one at a time, as many as you like. Only Calendar's first version used this; if it's set, it's already in your list.
@@ -81,6 +89,27 @@ actions:
     params:
       name: {max: 40, pattern: "[\\p{L}\\p{N} ._'&()+-]{1,40}"}
       address: {max: 500, pattern: "(?i)((https|webcal)://[\\x21-\\x7e]{3,490}|(~/|/|file:/)\\P{Cntrl}{0,490}\\.ics)"}
+  microsoft-sign-in:
+    label: Sign in to Microsoft
+    confirm: Sign in to Microsoft so Calendar can read your Outlook calendar? It only reads it.
+    args: [--action=microsoft-sign-in]
+    params:
+      name: {max: 40, pattern: "[\\p{L}\\p{N} ._'&()+-]{1,40}"}
+  microsoft-check:
+    label: Finish signing in to Microsoft
+    args: [--action=microsoft-check]
+    ask: false
+  local-calendars:
+    label: Find calendars from apps on this machine
+    args: [--action=local]
+    ask: false
+  add-local-calendar:
+    label: Add calendar
+    args: [--action=add-local]
+    ask: false
+    params:
+      name: {max: 40, pattern: "[\\p{L}\\p{N} ._'&()+-]{1,40}"}
+      source: {max: 420, pattern: "(evolution|thunderbird|apple):[\\w.@+-]{1,200}(/[\\w.@+-]{1,200}){0,2}"}
   remove-calendar:
     label: Remove calendar
     confirm: Remove this calendar? You'll need its iCal address to add it again.
