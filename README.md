@@ -46,6 +46,8 @@ Anyone who has one of these addresses can read that calendar, so treat it like a
     jbang Calendar.java            # prints what it read, saves nothing
     jbang Calendar.java --save     # saved for its tab on Elf Desk
 
-Each calendar is a pair of lines in the config, `CAL<n>_NAME` and `CAL<n>_ICS_SECRET`, for `n` from 1 to 20.
+Each calendar is a pair of lines in the config, `CAL<n>_NAME` and `CAL<n>_ICS_SECRET`, for `n` from 1 to 20. The three
+*Calendar 1, 2 and 3 from the first version* rows at the bottom of its Settings are those first three addresses, from
+before the list: you don't need them, and one set there already shows in *Your calendars*.
 
 Check it with `jbang https://github.com/House-elves/elf-runner/blob/main/ElfRunner.java --check-elf .`

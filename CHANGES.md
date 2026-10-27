@@ -3,6 +3,13 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.2.1
+
+- Fixed: the Name box in Settings, under Your calendars, now looks like the address box next to it.
+- Clearer: Settings starts with your list of calendars. Add your first, then the next, one at a time, as many as you
+  like. The three "Calendar 1, 2 and 3" address rows from the first version now sit at the bottom, marked not needed:
+  they never limited you to three, and a calendar you set there is already in your list.
+
 ## 0.2.0
 
 - New: add as many calendars as you like, of any kind, in Settings under Your calendars: give each a name, paste its

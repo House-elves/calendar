@@ -458,6 +458,7 @@ class CalendarSettings extends LitElement {
         label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
         .help { margin: 0; font-size: 13px; color: var(--muted); }
         .empty { margin: 0; color: var(--muted); font-size: 14px; }
+        input { width: 100%; box-sizing: border-box; }
     `];
 
     connectedCallback() {
@@ -513,11 +514,11 @@ class CalendarSettings extends LitElement {
                 <span class="dot" style="background:${colour(c.slot)}"></span><span>${c.name}</span>
                 <span class="where">${c.where}</span><span class="spacer"></span>
                 <button class="sm quiet" ?disabled=${this._busy} @click=${() => this._remove(c)}>Remove</button></li>`)}</ul>`
-                : html`<p class="empty">No calendars yet. Add one below: as many as you like, from any account.</p>`}
+                : html`<p class="empty">No calendars yet. Add your first one below, then the next, one at a time: as many as you like, from any account.</p>`}
             ${this._error ? html`<p class="error" role="alert">${this._error}</p>` : ''}
             ${full ? html`<p class="help">That's ${this._max}, as many as it reads. Remove one to add another.</p>` : html`
                 <form @submit=${this._add}>
-                    <label>Name<input name="name" maxlength="40" placeholder="Work" autocomplete="off"></label>
+                    <label>Name<input name="name" type="text" maxlength="40" placeholder="Work" autocomplete="off"></label>
                     <label>Private iCal address<input name="address" type="password" maxlength="500"
                         placeholder="https://… or webcal://…" autocomplete="off"></label>
                     <button type="submit" ?disabled=${this._busy}>Add calendar</button>
