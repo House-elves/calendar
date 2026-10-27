@@ -56,7 +56,7 @@ import java.util.regex.Pattern;
  * With --action it answers its Settings list: the calendars, adding one, signing in to Microsoft, removing one. It only reads: it never
  * changes a calendar, and sends nothing anywhere.
  */
-@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.5.0", description = "Reads your calendars for Elf Desk")
+@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.6.0", description = "Reads your calendars for Elf Desk")
 public class Calendar implements Callable<Integer> {
 
     static final ObjectMapper JSON = new ObjectMapper();
@@ -174,13 +174,20 @@ public class Calendar implements Callable<Integer> {
                 case "microsoft-sign-in" -> out.setAll(Microsoft.start(http(), in.path("name").asText("")));
                 case "microsoft-check" -> out.setAll(Microsoft.check(http()));
                 case "local" -> {
-                    // What Evolution, Thunderbird or Apple Calendar keep here, and whether it's in the list already.
+                    // What Evolution, Thunderbird or Apple Calendar keep here, the .ics files saved in Documents,
+                    // Downloads or Desktop, and whether each is in the list already.
                     Map<String, String> had = Config.raw();
+                    Set<URI> listed = new LinkedHashSet<>();
+                    for (int i = 1; i <= Config.MAX; i++) {
+                        URI u = Config.address(had.getOrDefault("CAL" + i + "_ICS_SECRET", ""));
+                        if (u != null) listed.add(u);
+                    }
                     ArrayNode found = out.putArray("found");
-                    for (Local.Found f : Local.find()) {
-                        boolean added = false;
-                        for (int i = 1; i <= Config.MAX; i++) added |= f.source().equals(had.getOrDefault("CAL" + i + "_ICS_SECRET", "").strip());
-                        found.addObject().put("source", f.source()).put("app", f.app()).put("name", clip(f.name(), 200)).put("added", added);
+                    List<Local.Found> all = new ArrayList<>(Local.find());
+                    all.addAll(Local.files());
+                    for (Local.Found f : all) {
+                        found.addObject().put("source", f.source()).put("app", f.app()).put("name", clip(f.name(), 200))
+                                .put("file", "File".equals(f.app())).put("added", listed.contains(Config.address(f.source())));
                     }
                 }
                 case "add-local" -> out.put("added", Config.addLocal(in.path("name").asText(""), in.path("source").asText("")));

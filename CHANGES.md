@@ -3,6 +3,16 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.6.0
+
+- New: a tidier Settings. Pick **On this machine** or **Online** to add a calendar, and the directions moved into a
+  **?** you can hover over, so the long text is gone.
+- New: **Online** asks where the calendar lives (Google, Microsoft, iCloud or Other), then only for what that one
+  needs. For Microsoft, choose **Sign in** or paste its **ICS link**.
+- New: **On this machine** has a **Find calendars** button. It lists the calendars Evolution, Thunderbird or Apple
+  Calendar keep here, and now also the .ics files in your Documents, Downloads and Desktop folders. Tick the ones you
+  want and click **Add calendar**: no more typing a file's path.
+
 ## 0.5.0
 
 - New: add the calendars Evolution, GNOME Calendar, Thunderbird or Apple Calendar already show, with one click, in

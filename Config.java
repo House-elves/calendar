@@ -154,7 +154,7 @@ public class Config {
                     + " a file is its whole path, like ~/Documents/work.ics.");
         }
         if (isMicrosoft(uri)) throw new IllegalArgumentException("Use Sign in to Microsoft for that.");
-        if (isLocal(uri)) throw new IllegalArgumentException("Pick it under From apps on this machine instead.");
+        if (isLocal(uri)) throw new IllegalArgumentException("Pick it under On this machine, Find calendars, instead.");
         if (isFile(uri) && !Files.isRegularFile(Path.of(uri))) throw new IllegalArgumentException("There's no file at " + address.strip() + ".");
         return addAt(name, uri);
     }

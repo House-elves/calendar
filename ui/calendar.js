@@ -439,33 +439,73 @@ class CalendarCard extends LitElement {
     }
 }
 
+/** A small "?" that shows its directions on hover or focus, so Settings stays short. */
+const tip = text => html`<span class="tip" tabindex="0" aria-label="Help">?<span class="bubble" role="tooltip">${text}</span></span>`;
+
+/** Where an online calendar comes from, and what each one asks for: its address's label, placeholder and directions. */
+const PROVIDERS = {
+    google: {
+        label: 'Google', field: 'Secret address in iCal format', placeholder: 'https://calendar.google.com/calendar/ical/…/basic.ics',
+        help: html`Gmail or Google Workspace: open Google Calendar's Settings, pick your calendar, then Integrate calendar,
+            and copy Secret address in iCal format. If a work account has no such field, your admin has turned it off.`,
+    },
+    microsoft: {
+        label: 'Microsoft', field: 'ICS link', placeholder: 'https://outlook.office365.com/owa/calendar/…/calendar.ics',
+        help: html`Office 365 or Outlook.com: click the gear at the top right of Outlook, then Calendar, Shared calendars.
+            Under Publish a calendar pick the calendar and Can view all details, click Publish and copy the ICS link.
+            Not the calendar's own Sharing and permissions: that only invites people. No Publish a calendar there? Your
+            admin turned it off: use Sign in instead, or On this machine if Evolution, Thunderbird or Apple Calendar
+            already shows it.`,
+    },
+    icloud: {
+        label: 'iCloud', field: 'Public calendar link', placeholder: 'webcal://p…-caldav.icloud.com/published/…',
+        help: html`In Apple Calendar or at icloud.com, share the calendar as a Public Calendar and copy its link.`,
+    },
+    other: {
+        label: 'Other', field: 'iCal address', placeholder: 'https://… or webcal://…',
+        help: html`Any calendar with an iCal (.ics) address works: look for "subscribe", "iCal" or "ICS" in its sharing settings.`,
+    },
+};
+
 /**
- * Your calendars, at the top of its Settings pop-up: as many as you like, each with a name and its private iCal
- * address. The address goes to the elf's config file and is never shown again: the list says only where it lives.
+ * Your calendars, at the top of its Settings pop-up: as many as you like. Add one from this machine (Find calendars
+ * lists what Evolution, Thunderbird or Apple Calendar keep, and .ics files you saved; tick and add) or online (pick
+ * where it lives, and it asks only for what that one needs). An address goes to the elf's config file and is never
+ * shown again: the list says only where it lives.
  */
 class CalendarSettings extends LitElement {
 
     static properties = { _list: { state: true }, _max: { state: true }, _error: { state: true }, _busy: { state: true },
-        _signin: { state: true }, _found: { state: true } };
+        _signin: { state: true }, _found: { state: true }, _where: { state: true }, _provider: { state: true },
+        _msWay: { state: true }, _picked: { state: true } };
 
     static styles = [shared, css`
         :host { display: grid; gap: 14px; }
         ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
         li { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+        li label { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; min-width: 0; font-size: 14px; color: inherit; }
         .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
-        .where { color: var(--muted); }
+        .where { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .spacer { flex: 1; }
+        .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+        .seg button[aria-pressed="true"] { background: var(--accent); color: white; border-color: var(--accent); }
         form { display: grid; grid-template-columns: minmax(8rem, 1fr) minmax(12rem, 3fr) auto; gap: 8px; align-items: end; }
+        form.ms { grid-template-columns: minmax(8rem, 1fr) auto; }
         label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
         .help { margin: 0; font-size: 13px; color: var(--muted); }
-        .steps { display: grid; gap: 6px; }
-        .steps p { margin: 0; }
         .empty { margin: 0; color: var(--muted); font-size: 14px; }
-        input { width: 100%; box-sizing: border-box; }
-        form.ms { grid-template-columns: minmax(8rem, 1fr) auto; }
+        input:not([type="checkbox"]) { width: 100%; box-sizing: border-box; }
         .code { display: grid; gap: 6px; font-size: 14px; }
         .code p { margin: 0; }
         .code b { font-family: var(--mono, monospace); font-size: 18px; letter-spacing: 0.08em; user-select: all; }
+        .tip { position: relative; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
+            border: 1px solid var(--border, currentColor); color: var(--muted); font-size: 12px; cursor: help; flex: none; }
+        .tip .bubble { display: none; position: absolute; z-index: 10; top: 24px; left: -8px; width: min(26rem, 70vw);
+            padding: 8px 10px; border-radius: 6px; background: var(--panel, var(--bg, #222)); color: var(--fg, inherit);
+            border: 1px solid var(--border, #555); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); font-size: 13px;
+            line-height: 1.45; cursor: auto; font-weight: normal; }
+        .tip:hover .bubble, .tip:focus .bubble, .tip:focus-within .bubble { display: block; }
     `];
 
     disconnectedCallback() {
@@ -475,7 +515,8 @@ class CalendarSettings extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
-        this._act('calendars', {}).then(() => this._findLocal());
+        this._picked = new Set();
+        this._act('calendars', {});
     }
 
     /** Asks for one of its list's actions; the answer is always the list as it is now. */
@@ -506,7 +547,7 @@ class CalendarSettings extends LitElement {
         const form = ev.target;
         const name = form.name.value.trim(), address = form.address.value.trim();
         if (!name || !address) {
-            this._error = 'Give it a name and paste its iCal address or .ics file.';
+            this._error = `Give it a name and paste its ${PROVIDERS[this._provider].field}.`;
             return;
         }
         if (await this._act('add-calendar', { name, address })) {
@@ -552,25 +593,100 @@ class CalendarSettings extends LitElement {
         this._poll = setTimeout(check, wait);
     }
 
-    /** The calendars Evolution, Thunderbird or Apple Calendar keep on this machine, to add with one click. */
+    /** What Evolution, Thunderbird or Apple Calendar keep on this machine, and .ics files you saved, to tick and add. */
     async _findLocal() {
-        if (await this._act('local-calendars', {})) this._found = this._answer?.found ?? [];
+        if (await this._act('local-calendars', {})) {
+            this._found = this._answer?.found ?? [];
+            this._picked = new Set();
+        }
     }
 
-    async _addLocal(f) {
-        // Its name in the app, kept to what a calendar's name may hold here.
-        const name = f.name.replace(/[^\p{L}\p{N} ._'&()+-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 40) || f.app;
-        if (await this._act('add-local-calendar', { name, source: f.source })) {
-            this._findLocal();
-            elf.run('refresh').catch(() => {});
+    _pick(f, on) {
+        const picked = new Set(this._picked);
+        on ? picked.add(f.source) : picked.delete(f.source);
+        this._picked = picked;
+    }
+
+    /** Adds each ticked calendar under its name there, then reads them all once. */
+    async _addPicked() {
+        let added = 0;
+        for (const f of this._found.filter(f => this._picked.has(f.source) && !f.added)) {
+            // Its name there, kept to what a calendar's name may hold here.
+            const name = f.name.replace(/[^\p{L}\p{N} ._'&()+-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 40) || f.app;
+            const ok = f.file ? await this._act('add-calendar', { name, address: f.source })
+                : await this._act('add-local-calendar', { name, source: f.source });
+            if (!ok) break;
+            added++;
         }
+        const error = this._error;
+        await this._findLocal();
+        this._error ??= error;
+        if (added) elf.run('refresh').catch(() => {});
     }
 
     async _remove(c) {
         if (await this._act('remove-calendar', { slot: c.slot })) {
-            this._findLocal();
+            if (this._found) this._findLocal();
             elf.run('refresh').catch(() => {});
         }
+    }
+
+    _local(full) {
+        const found = this._found, picked = [...this._picked].length;
+        return html`
+            <div class="row">
+                <button ?disabled=${this._busy} @click=${this._findLocal}>Find calendars</button>
+                ${tip(html`Looks for the calendars Evolution (and GNOME Calendar), Thunderbird or Apple Calendar keep on this
+                    machine, and for .ics files in Documents, Downloads and Desktop. It reads their copy and never changes
+                    it, so a calendar is as up to date as that app's last sync, or the file's last save. Good for a work
+                    calendar Outlook won't publish.`)}
+                ${this._busy && !found ? spinner : ''}
+            </div>
+            ${!found ? '' : !found.length ? html`<p class="empty">None found. Open Evolution, Thunderbird or Apple Calendar
+                once, or save an .ics file in Documents, then Find calendars again.</p>` : html`
+                <ul>${found.map(f => html`<li><label>
+                    <input type="checkbox" ?disabled=${f.added || this._busy} .checked=${f.added || this._picked.has(f.source)}
+                        @change=${e => this._pick(f, e.target.checked)}>
+                    <span>${f.name}</span><span class="where">${f.added ? 'Added' : f.file ? f.source : f.app}</span></label></li>`)}</ul>
+                <div class="row"><button ?disabled=${this._busy || full || !picked} @click=${this._addPicked}>Add ${picked > 1
+                    ? `${picked} calendars` : 'calendar'}</button></div>`}`;
+    }
+
+    _online() {
+        const p = PROVIDERS[this._provider];
+        const ms = this._provider === 'microsoft', signIn = ms && this._msWay !== 'link';
+        return html`
+            <div class="row">
+                <span class="seg">${Object.entries(PROVIDERS).map(([k, v]) => html`<button class="quiet"
+                    aria-pressed=${this._provider === k} @click=${() => { this._provider = k; this._error = null; }}>${v.label}</button>`)}</span>
+            </div>
+            ${!p ? '' : html`
+                ${ms ? html`<div class="row">
+                    <span class="seg">
+                        <button class="quiet sm" aria-pressed=${signIn} @click=${() => this._msWay = 'signin'}>Sign in</button>
+                        <button class="quiet sm" aria-pressed=${!signIn} @click=${() => this._msWay = 'link'}>ICS link</button>
+                    </span>
+                    ${tip(signIn ? html`Reads your Outlook calendar the way Thunderbird and Evolution do, and can't change
+                        anything. It needs a Microsoft app ID, set below in these settings (the README says how to get one),
+                        and your admin may have to allow that app, as they did for Thunderbird.` : p.help)}
+                </div>` : ''}
+                ${signIn ? this._signin ? html`<div class="code" role="status">
+                    <p>Open <a href=${this._signin.url} target="_blank" rel="noopener">${this._signin.url}</a>, type this code
+                        and sign in to your work or school account:</p>
+                    <p><b>${this._signin.code}</b></p>
+                    <p class="help">${spinner}Waiting for you to sign in. Your calendar shows up in the list once you have.</p>
+                </div>` : html`
+                <form class="ms" @submit=${this._signIn}>
+                    <label>Name<input name="name" type="text" maxlength="40" placeholder="Work" autocomplete="off"></label>
+                    <button type="submit" ?disabled=${this._busy}>Sign in to Microsoft</button>
+                </form>` : html`
+                <form @submit=${this._add}>
+                    <label>Name<input name="name" type="text" maxlength="40" placeholder="Work" autocomplete="off"></label>
+                    <label><span class="row">${p.field}${ms ? '' : tip(p.help)}${tip(html`Anyone with this address can read the
+                        calendar, so it's kept like a password and never shown again.`)}</span>
+                        <input name="address" type="password" maxlength="500" placeholder=${p.placeholder} autocomplete="off"></label>
+                    <button type="submit" ?disabled=${this._busy}>Add calendar</button>
+                </form>`}`}`;
     }
 
     render() {
@@ -581,51 +697,19 @@ class CalendarSettings extends LitElement {
                 <span class="dot" style="background:${colour(c.slot)}"></span><span>${c.name}</span>
                 <span class="where">${c.where}</span><span class="spacer"></span>
                 <button class="sm quiet" ?disabled=${this._busy} @click=${() => this._remove(c)}>Remove</button></li>`)}</ul>`
-                : html`<p class="empty">No calendars yet. Add your first one below, then the next, one at a time: as many as you like, from any account.</p>`}
+                : html`<p class="empty">No calendars yet.</p>`}
             ${this._error ? html`<p class="error" role="alert">${this._error}</p>` : ''}
             ${full ? html`<p class="help">That's ${this._max}, as many as it reads. Remove one to add another.</p>` : html`
-                <form @submit=${this._add}>
-                    <label>Name<input name="name" type="text" maxlength="40" placeholder="Work" autocomplete="off"></label>
-                    <label>Private iCal address or .ics file<input name="address" type="password" maxlength="500"
-                        placeholder="https://…, webcal://… or ~/….ics" autocomplete="off"></label>
-                    <button type="submit" ?disabled=${this._busy}>Add calendar</button>
-                </form>
-                ${this._signin ? html`<div class="code" role="status">
-                    <p>Open <a href=${this._signin.url} target="_blank" rel="noopener">${this._signin.url}</a>, type this code
-                        and sign in to your work or school account:</p>
-                    <p><b>${this._signin.code}</b></p>
-                    <p class="help">${spinner}Waiting for you to sign in. Your calendar shows up in the list once you have.</p>
-                </div>` : html`
-                <form class="ms" @submit=${this._signIn}>
-                    <label>Or sign in to Outlook instead of pasting an address: name<input name="name" type="text"
-                        maxlength="40" placeholder="Work" autocomplete="off"></label>
-                    <button type="submit" ?disabled=${this._busy}>Sign in to Microsoft</button>
-                </form>`}`}
-            ${this._found?.length ? html`<div class="steps">
-                <p class="help"><b>From apps on this machine</b>: the calendars these apps already keep a copy of. Calendar
-                    reads that copy, so it's as up to date as the app's last sync.</p>
-                <ul>${this._found.map(f => html`<li><span>${f.name}</span><span class="where">${f.app}</span>
-                    <span class="spacer"></span>${f.added ? html`<span class="where">Added</span>` : html`<button class="sm"
-                    ?disabled=${this._busy || full} @click=${() => this._addLocal(f)}>Add calendar</button>`}</li>`)}</ul>
-            </div>` : ''}
-            <div class="help steps">
-                <p><b>Google Calendar</b> (Gmail, Google Workspace): Settings, your calendar, Integrate calendar,
-                    Secret address in iCal format. If a work account has no such field, your admin has turned it off.</p>
-                <p><b>Outlook</b> (Office 365, Outlook.com): not the calendar's own Sharing and permissions, which only
-                    invites people. Click the gear at the top right of Outlook for Settings, then Calendar, Shared
-                    calendars. Under Publish a calendar, pick the calendar and Can view all details, click Publish, then
-                    copy the ICS link.</p>
-                <p><b>Outlook with no Shared calendars or Publish a calendar</b>, like Outlook on the web at work: your
-                    admin has turned publishing off. If Evolution, Thunderbird or Apple Calendar on this machine already
-                    shows it, pick it under From apps on this machine. Or click Sign in to Microsoft: it reads your calendar the way
-                    Thunderbird and Evolution do. It needs a Microsoft app ID in the settings below (the README says how to
-                    get one), and your admin may have to allow that app, as they did for Thunderbird. In classic Outlook
-                    for Windows you can also save the calendar as an .ics file (File, Save Calendar, More Options, Full
-                    details) and paste its path, like ~/Documents/work.ics, instead of an address.</p>
-                <p><b>iCloud</b>: share the calendar as a Public Calendar and copy its link.</p>
-                <p><b>Any other calendar</b> with an iCal (.ics) address works too.</p>
-                <p>Anyone with the address can read the calendar, so it's kept like a password and never shown again.</p>
-            </div>`;
+                <div class="row">
+                    <span class="seg">
+                        <button class="quiet" aria-pressed=${this._where === 'local'} @click=${() => this._where = 'local'}>On this machine</button>
+                        <button class="quiet" aria-pressed=${this._where === 'online'} @click=${() => this._where = 'online'}>Online</button>
+                    </span>
+                    ${tip(html`Add as many calendars as you like, one at a time. On this machine: calendars Evolution,
+                        Thunderbird or Apple Calendar already show, or an .ics file. Online: Google, Microsoft, iCloud or
+                        any other with an iCal address.`)}
+                </div>
+                ${this._where === 'local' ? this._local(full) : this._where === 'online' ? this._online() : ''}`}`;
     }
 }
 

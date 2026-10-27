@@ -30,29 +30,33 @@ even offline. If one calendar can't be read, it keeps showing what it read last 
 ## Adding it
 
 1. On Elf Desk, click **+** and pick **Calendar**.
-2. In its **Settings**, under *Your calendars*, give each calendar a short name, paste its private iCal address and
-   click **Add calendar**. Add as many as you like (up to 20); **Remove** takes one off again.
-   - **Google Calendar:** Settings, your calendar, *Integrate calendar*, *Secret address in iCal format*. If a work
-     account has no such field, your admin has turned it off.
-   - **Outlook on the web (Office 365, Outlook.com):** not the calendar's own *Sharing and permissions*, which only
-     invites people by email. Click the gear at the top right of Outlook for *Settings*, then *Calendar*, *Shared
-     calendars*. Under *Publish a calendar*, pick the calendar and *Can view all details* (or meeting links are left
-     out), click *Publish*, then copy the ICS link.
-   - **Outlook with no *Shared calendars* or *Publish a calendar*,** like Outlook on the web at work: your admin has
-     turned publishing off. If Evolution, Thunderbird or Apple Calendar on this machine shows it, add it from there
-     (see below), or click **Sign in to Microsoft** (see further down). In classic Outlook for Windows you can
-     also save the calendar as an `.ics` file (*File*, *Save Calendar*, *More Options*, *Full details*) and paste its
-     path, like `~/Documents/work.ics`, instead of an address; it's read again at each refresh.
-   - **iCloud:** share the calendar as a *Public Calendar* and copy its link (`webcal://` is fine).
-   - **Anything else** that gives you an iCal (`.ics`) address works the same way.
+2. In its **Settings**, at the top, pick **On this machine** or **Online**. Add as many calendars as you like (up to
+   20), one at a time; **Remove** takes one off again. The **?** next to each choice says where to find what it asks
+   for.
+   - **On this machine:** click **Find calendars**. It lists the calendars Evolution, Thunderbird or Apple Calendar
+     already keep here (see below), and the `.ics` files in your *Documents*, *Downloads* and *Desktop* folders (a few
+     folders deep). Tick the ones you want and click **Add calendar**.
+   - **Online:** pick where the calendar lives, give it a short name, and it asks for only what that one needs:
+     - **Google** (Gmail, Google Workspace): its *Secret address in iCal format*: Google Calendar's Settings, your
+       calendar, *Integrate calendar*. If a work account has no such field, your admin has turned it off.
+     - **Microsoft** (Office 365, Outlook.com): **Sign in** (see *Signing in to Microsoft* below), or its **ICS link**:
+       not the calendar's own *Sharing and permissions*, which only invites people by email. Click the gear at the top
+       right of Outlook for *Settings*, then *Calendar*, *Shared calendars*. Under *Publish a calendar*, pick the
+       calendar and *Can view all details* (or meeting links are left out), click *Publish*, then copy the ICS link.
+       No *Publish a calendar*? Your admin turned publishing off: sign in instead, or add it from Evolution or
+       Thunderbird under *On this machine*. In classic Outlook for Windows you can also save the calendar as an `.ics`
+       file (*File*, *Save Calendar*, *More Options*, *Full details*) in *Documents* and find it under *On this
+       machine*; it's read again at each refresh.
+     - **iCloud:** share the calendar as a *Public Calendar* and copy its link (`webcal://` is fine).
+     - **Other:** anything that gives you an iCal (`.ics`) address.
 3. It reads them straight away; **Refresh calendars** reads them again.
 
 ### From apps on this machine
 
 Evolution, Thunderbird and Apple Calendar sign in to your accounts themselves, with your organisation's blessing, and
 keep a copy of each calendar on this machine. Calendar can read that copy, so a work Outlook calendar that Evolution
-shows needs no address and no admin. In Settings, under *From apps on this machine*, click **Add calendar** next to
-one. It's read again at each refresh, and it's as up to date as the app's last sync, so leave the app running (or open
+shows needs no address and no admin. In Settings, under *On this machine*, click **Find calendars**, tick it and
+click **Add calendar**. It's read again at each refresh, and it's as up to date as the app's last sync, so leave the app running (or open
 it now and then).
 
 - **Evolution** and **GNOME Calendar** (which uses Evolution's accounts), also from Flathub: every calendar it has, from
@@ -62,12 +66,12 @@ it now and then).
   program read that folder: give the program that runs Elf Desk *Full Disk Access* in *System Settings*, *Privacy &
   Security*. Newer versions of macOS keep their calendars in a database instead, which this doesn't read yet.
 
-If the list doesn't show, none of these apps has a calendar here.
+If it finds none, none of these apps has a calendar here and there's no `.ics` file in those folders.
 
 ### Signing in to Microsoft
 
 Thunderbird and Evolution don't need a published address: you sign in to your Microsoft account, and they read the
-calendar through Microsoft's own interface. **Sign in to Microsoft** does the same. Give the calendar a name and click
+calendar through Microsoft's own interface. **Sign in to Microsoft**, under *Online*, *Microsoft*, does the same. Give the calendar a name and click
 it; Settings shows a code. Open the link it shows (microsoft.com/devicelogin), type the code and sign in as you always
 do. Your password goes only to Microsoft. Calendar asks only to read your calendars and who you are, so it can't
 change or send anything, and it stays signed in until you remove the calendar or your organisation takes it back.
@@ -92,7 +96,7 @@ Anyone who has one of these addresses can read that calendar, so treat it like a
     echo '{}' | jbang Calendar.java --action=calendars
     echo '{"name":"Work"}' | jbang Calendar.java --action=microsoft-sign-in   # shows a code to type at microsoft.com/devicelogin
     echo '{}' | jbang Calendar.java --action=microsoft-check                   # once you have: adds the calendar
-    echo '{}' | jbang Calendar.java --action=local       # what Evolution, Thunderbird or Apple Calendar keep here
+    echo '{}' | jbang Calendar.java --action=local       # what Evolution, Thunderbird or Apple Calendar keep here, and .ics files
     echo '{"name":"Work","source":"evolution:<its source>"}' | jbang Calendar.java --action=add-local
     echo '{"slot":1}' | jbang Calendar.java --action=remove
     jbang Calendar.java            # prints what it read, saves nothing

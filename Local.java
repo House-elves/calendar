@@ -62,6 +62,29 @@ public class Local {
         return all;
     }
 
+    /** Folders where a saved .ics file usually is: Find calendars looks only here, a few folders deep. */
+    static final List<String> FILE_FOLDERS = List.of("Documents", "Downloads", "Desktop");
+
+    /** The .ics files in those folders, by their path from your home folder, like ~/Documents/work.ics. Up to 50. */
+    static List<Found> files() {
+        List<Found> all = new ArrayList<>();
+        for (String folder : FILE_FOLDERS) {
+            Path root = HOME.resolve(folder);
+            if (!Files.isDirectory(root)) continue;
+            try (Stream<Path> walk = Files.walk(root, 3)) {
+                walk.filter(f -> !HOME.relativize(f).toString().matches("(.*/)?\\..*"))
+                        .filter(f -> f.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".ics") && Files.isRegularFile(f))
+                        .limit(50 - all.size())
+                        .forEach(f -> all.add(new Found("~/" + HOME.relativize(f), "File", f.getFileName().toString().replaceFirst("(?i)\\.ics$", ""))));
+            } catch (IOException | java.io.UncheckedIOException e) {
+                // A folder it may not read is one it skips.
+            }
+            if (all.size() >= 50) break;
+        }
+        all.sort(Comparator.comparing(Found::source));
+        return all;
+    }
+
     /** The calendar as iCalendar text, for Ics, or an IOException saying what to do. */
     static String ics(String source) throws IOException {
         String scheme = source.substring(0, source.indexOf(':'));
