@@ -3,6 +3,13 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.2.0
+
+- New: add as many calendars as you like, of any kind, in Settings under Your calendars: give each a name, paste its
+  iCal address and click Add calendar. Remove takes one off. Google Calendar, Outlook, iCloud and any other calendar
+  with an iCal address all work, each in its own colour.
+- The three calendars you set up before are still there, in the new list, with their names and colours.
+
 ## 0.1.1
 
 - Fixed: its first refresh, right after you add it, no longer shows as a failed run before you've pasted a calendar's

@@ -5,8 +5,9 @@ import {
     LitElement, html, css, shared, cardStyles, spinner, ago, runTime, count, settingsButton, Ticking, elf,
 } from '/elf-kit/1/kit.js';
 
-/** Each calendar's colour, by its slot (1 to 3). */
-const COLOURS = { 1: '#3b6fd8', 2: '#c2410c', 3: '#2f855a' };
+/** Each calendar's colour, by its slot (1 to 20): the first three are the colours it always had. */
+const PALETTE = ['#3b6fd8', '#c2410c', '#2f855a', '#8b5cf6', '#b45309', '#0e7490', '#be185d', '#4d7c0f', '#6d28d9', '#a16207'];
+const colour = slot => PALETTE[(slot - 1) % PALETTE.length];
 const DAY = 86400000;
 
 async function saved() {
@@ -182,7 +183,7 @@ class CalendarTab extends LitElement {
     }
 
     _colour(e) {
-        return COLOURS[e.calendars.find(c => !this._hidden.has(c)) ?? e.calendars[0]] ?? 'var(--accent)';
+        return colour(e.calendars.find(c => !this._hidden.has(c)) ?? e.calendars[0]);
     }
 
     _name(slot) {
@@ -311,7 +312,7 @@ class CalendarTab extends LitElement {
                 ${e.attendees?.length ? html`<dt>Invited</dt><dd><ul class="people">${e.attendees.map(p => html`<li>${who(p)}${
                     p.answer && answers[p.answer] ? html` <span class="muted">(${answers[p.answer]})</span>` : ''}</li>`)}
                     ${e.moreAttendees ? html`<li class="muted">and ${e.moreAttendees} more</li>` : ''}</ul></dd>` : ''}
-                <dt>Calendar</dt><dd>${e.calendars.map((c, i) => html`${i ? ', ' : ''}<span class="dot" style="background:${COLOURS[c]}"></span> ${this._name(c)}`)}</dd>
+                <dt>Calendar</dt><dd>${e.calendars.map((c, i) => html`${i ? ', ' : ''}<span class="dot" style="background:${colour(c)}"></span> ${this._name(c)}`)}</dd>
             </dl>
             ${e.description ? html`<pre>${this._linked(e.description, e.links)}</pre>` : ''}
         </div>`;
@@ -350,8 +351,8 @@ class CalendarTab extends LitElement {
                 ${cals.filter(c => c.error).map(c => html`<p class="error" role="alert">Couldn't read ${c.name}: ${c.error}${
                     c.readAt ? ` Showing what was read ${ago(new Date(c.readAt))}.` : ''}</p>`)}
                 ${this._loading && !d ? html`<div class="skeleton big"></div>` : ''}
-                ${!d && !this._loading ? html`<p class="panel empty">Paste a calendar's private iCal address in Settings,
-                    then Refresh calendars. Settings says where to find it in Google Calendar and Outlook.</p>` : ''}
+                ${!d && !this._loading ? html`<p class="panel empty">Add a calendar with its private iCal address in Settings,
+                    then Refresh calendars. Settings says where to find it in Google Calendar, Outlook and iCloud.</p>` : ''}
                 ${d ? html`
                     ${next ? html`<p class="sub">Next: <a href="#" @click=${ev => { ev.preventDefault(); this._open = next; }}>${next.title}</a>
                         ${startOf(next) <= new Date() ? 'is on now' : until(startOf(next))}.
@@ -366,7 +367,7 @@ class CalendarTab extends LitElement {
                             @click=${() => this._setView(v)}>${v[0].toUpperCase() + v.slice(1)}</button>`)}</span>
                     </div>
                     <div class="cals">${cals.map(c => html`<label><input type="checkbox" .checked=${!this._hidden.has(c.slot)}
-                        @change=${() => this._toggle(c.slot)}><span class="dot" style="background:${COLOURS[c.slot]}"></span>${c.name}</label>`)}</div>
+                        @change=${() => this._toggle(c.slot)}><span class="dot" style="background:${colour(c.slot)}"></span>${c.name}</label>`)}</div>
                     ${outside ? html`<p class="panel empty">This is outside what was read (${longDay(dayOf(d.from))} to ${
                         longDay(addDays(dayOf(d.to), -1))}). Raise Weeks ahead in Settings to read further.</p>` : ''}
                     ${this._open ? this._detail(this._open) : ''}
@@ -422,7 +423,7 @@ class CalendarCard extends LitElement {
         const next = this._data ? nextMeeting(this._data.events ?? [], now) : null;
         const soon = next && startOf(next) - now < 10 * 60000;
         elf.card({ attention: !!soon });
-        const say = !this._data ? html`Paste a calendar's address in <a href="#">Settings</a>, then Refresh calendars.`
+        const say = !this._data ? html`Add a calendar in <a href="#">Settings</a>, then Refresh calendars.`
             : !next ? 'No more meetings in your calendars.'
             : startOf(next) <= now ? html`<a href="#">${next.title}</a> is on now.`
             : html`<a href="#">${next.title}</a> ${until(startOf(next), now)}.`;
@@ -438,6 +439,99 @@ class CalendarCard extends LitElement {
     }
 }
 
+/**
+ * Your calendars, at the top of its Settings pop-up: as many as you like, each with a name and its private iCal
+ * address. The address goes to the elf's config file and is never shown again: the list says only where it lives.
+ */
+class CalendarSettings extends LitElement {
+
+    static properties = { _list: { state: true }, _max: { state: true }, _error: { state: true }, _busy: { state: true } };
+
+    static styles = [shared, css`
+        :host { display: grid; gap: 14px; }
+        ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+        li { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+        .where { color: var(--muted); }
+        .spacer { flex: 1; }
+        form { display: grid; grid-template-columns: minmax(8rem, 1fr) minmax(12rem, 3fr) auto; gap: 8px; align-items: end; }
+        label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+        .help { margin: 0; font-size: 13px; color: var(--muted); }
+        .empty { margin: 0; color: var(--muted); font-size: 14px; }
+    `];
+
+    connectedCallback() {
+        super.connectedCallback();
+        this._act('calendars', {});
+    }
+
+    /** Asks for one of its list's actions; the answer is always the list as it is now. */
+    async _act(action, params) {
+        this._busy = true;
+        this._error = null;
+        try {
+            const r = await elf.act(action, params);
+            const a = r?.result ?? r;
+            if (Array.isArray(a?.calendars)) this._list = a.calendars;
+            if (a?.max) this._max = a.max;
+            if (a?.error) {
+                this._error = a.error;
+                return false;
+            }
+            return true;
+        } catch (e) {
+            if (!e?.cancelled) this._error = `Couldn't change your calendars: ${e?.message ?? e}`;
+            return false;
+        } finally {
+            this._busy = false;
+        }
+    }
+
+    async _add(ev) {
+        ev.preventDefault();
+        const form = ev.target;
+        const name = form.name.value.trim(), address = form.address.value.trim();
+        if (!name || !address) {
+            this._error = 'Give it a name and paste its iCal address.';
+            return;
+        }
+        if (await this._act('add-calendar', { name, address })) {
+            form.reset();
+            elf.run('refresh').catch(() => {});
+        }
+    }
+
+    async _remove(c) {
+        if (await this._act('remove-calendar', { slot: c.slot })) elf.run('refresh').catch(() => {});
+    }
+
+    render() {
+        const list = this._list;
+        const full = list && this._max && list.length >= this._max;
+        return html`
+            ${!list ? html`<div class="skeleton"></div>` : list.length ? html`<ul>${list.map(c => html`<li>
+                <span class="dot" style="background:${colour(c.slot)}"></span><span>${c.name}</span>
+                <span class="where">${c.where}</span><span class="spacer"></span>
+                <button class="sm quiet" ?disabled=${this._busy} @click=${() => this._remove(c)}>Remove</button></li>`)}</ul>`
+                : html`<p class="empty">No calendars yet. Add one below: as many as you like, from any account.</p>`}
+            ${this._error ? html`<p class="error" role="alert">${this._error}</p>` : ''}
+            ${full ? html`<p class="help">That's ${this._max}, as many as it reads. Remove one to add another.</p>` : html`
+                <form @submit=${this._add}>
+                    <label>Name<input name="name" maxlength="40" placeholder="Work" autocomplete="off"></label>
+                    <label>Private iCal address<input name="address" type="password" maxlength="500"
+                        placeholder="https://… or webcal://…" autocomplete="off"></label>
+                    <button type="submit" ?disabled=${this._busy}>Add calendar</button>
+                </form>`}
+            <p class="help"><b>Google Calendar</b> (Gmail, Google Workspace): Settings, your calendar, Integrate calendar,
+                Secret address in iCal format. If a work account has no such field, your admin has turned it off.
+                <b>Outlook</b> (Office 365, Outlook.com): Settings, Calendar, Shared calendars, Publish a calendar with Can view
+                all details, then copy the ICS link. <b>iCloud</b>: share the calendar as a Public Calendar and copy its link.
+                Any other calendar with an iCal (.ics) address works too. Anyone with the address can read the calendar,
+                so it's kept like a password and never shown again.</p>`;
+    }
+}
+
 customElements.define('calendar-tab', CalendarTab);
 customElements.define('calendar-card', CalendarCard);
-document.body.append(document.createElement(elf.view === 'card' ? 'calendar-card' : 'calendar-tab'));
+customElements.define('calendar-settings', CalendarSettings);
+document.body.append(document.createElement({ card: 'calendar-card', settings: 'calendar-settings' }[elf.view] ?? 'calendar-tab'));

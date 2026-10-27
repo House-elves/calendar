@@ -44,12 +44,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * calendar: reads up to three calendars through their private iCal addresses (Google Calendar, Outlook) and saves
- * their events, from the start of last week to some weeks ahead, for its tab on Elf Desk. An event that's on more
- * than one calendar is saved once, with both. Without --save it prints what it read (the desk's dry run). It only
- * reads: it never changes a calendar, and sends nothing anywhere.
+ * calendar: reads your calendars through their private iCal addresses (Google Calendar, Outlook, iCloud or any other)
+ * and saves their events, from the start of last week to some weeks ahead, for its tab on Elf Desk. An event that's
+ * on more than one calendar is saved once, with each. Without --save it prints what it read (the desk's dry run).
+ * With --action it answers its Settings list: the calendars, adding one, removing one. It only reads: it never
+ * changes a calendar, and sends nothing anywhere.
  */
-@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.1.1", description = "Reads your calendars for Elf Desk")
+@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.2.0", description = "Reads your calendars for Elf Desk")
 public class Calendar implements Callable<Integer> {
 
     static final ObjectMapper JSON = new ObjectMapper();
@@ -60,8 +61,12 @@ public class Calendar implements Callable<Integer> {
     @Option(names = "--save", description = "Save what it read under ~/.config/calendar/events for Elf Desk")
     boolean save;
 
+    @Option(names = "--action", description = "For its Settings list: calendars, add or remove, with the values as JSON on stdin")
+    String action;
+
     @Override
     public Integer call() throws Exception {
+        if (action != null) return action();
         Config config;
         try {
             config = Config.load();
@@ -72,7 +77,7 @@ public class Calendar implements Callable<Integer> {
         }
         if (config.calendars.isEmpty()) {
             // Nothing set up yet, as on the desk's first run right after install: that's not a failure, just nothing to read.
-            System.out.println("No calendar set yet. Paste a calendar's private iCal address in Settings, then Refresh calendars.");
+            System.out.println("No calendar set yet. Add one with its private iCal address in Settings, then Refresh calendars.");
             if (save) {
                 // All addresses removed: drop what was saved, so the tab shows how to start again.
                 for (int slot : config.unused) Files.deleteIfExists(EVENTS.resolve("cal-" + slot + ".json"));
@@ -141,6 +146,47 @@ public class Calendar implements Callable<Integer> {
         System.out.println("Saved " + merged.size() + " events");
         // Fails only when nothing could be read: then the tab shows the log's end, which says what to do.
         return failed == config.calendars.size() ? 1 : 0;
+    }
+
+    // ---- its Settings list ----
+
+    /**
+     * One of its Settings list's actions. The last line printed is the answer: the calendars, by slot, name and where
+     * they live, never their addresses, or {"error": what to do}.
+     */
+    int action() throws IOException {
+        JsonNode in = JSON.readTree(System.in.readAllBytes());
+        ObjectNode out = JSON.createObjectNode();
+        try {
+            switch (action) {
+                case "calendars" -> {
+                }
+                case "add" -> out.put("added", Config.add(in.path("name").asText(""), in.path("address").asText("")));
+                case "remove" -> {
+                    int slot = in.path("slot").asInt(0);
+                    Config.remove(slot);
+                    // Its events go now, not at the next refresh.
+                    Files.deleteIfExists(EVENTS.resolve("cal-" + slot + ".json"));
+                    out.put("removed", slot);
+                }
+                default -> throw new IllegalArgumentException("Not something it does: " + action);
+            }
+        } catch (IllegalArgumentException e) {
+            out.put("error", e.getMessage());
+        }
+        ArrayNode list = out.putArray("calendars");
+        Map<String, String> raw = Config.raw();
+        for (int i = 1; i <= Config.MAX; i++) {
+            String set = raw.getOrDefault("CAL" + i + "_ICS_SECRET", "").strip();
+            if (set.isEmpty()) continue;
+            URI address = Config.address(set);
+            // One with a bad address is listed too, so it can be removed.
+            list.addObject().put("slot", i).put("name", Config.name(raw, i))
+                    .put("where", address == null ? "Not an iCal address" : Config.where(address));
+        }
+        out.put("max", Config.MAX);
+        System.out.println(JSON.writeValueAsString(out));
+        return 0;
     }
 
     // ---- reading a calendar ----

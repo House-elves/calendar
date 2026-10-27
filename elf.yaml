@@ -1,9 +1,9 @@
 # A House Elves elf: what Elf Desk needs to install, set up and run calendar. AGENTS.md says what each field means.
 name: calendar
 title: Calendar
-version: 0.1.1
+version: 0.2.0
 author: "@phillip-kruger"
-description: Puts your Gmail, Google Workspace and Office 365 calendars together in one day, week or month view, with every event's details and a link to join each meeting.
+description: Puts all your calendars, Gmail, Google Workspace, Office 365, iCloud or any other with an iCal address, together in one day, week or month view, with every event's details and a link to join each meeting.
 main: Calendar.java
 config: ~/.config/calendar/config
 tools: []
@@ -11,39 +11,27 @@ tools: []
 # What it reads and writes, in plain words: the desk shows these before you install it, so they must be true and
 # complete. Name every place outside this machine it reaches, and say when it waits for your click.
 reads:
-  - "Your calendars, through the private iCal addresses you give it: Google Calendar (calendar.google.com) for Gmail and Google Workspace, and Outlook (outlook.office365.com) for Office 365."
+  - "Your calendars, through the private iCal addresses you add in its Settings, from the server each address names: Google Calendar (calendar.google.com) for Gmail and Google Workspace, Outlook (outlook.office365.com) for Office 365, iCloud, or any other. It reads nothing else."
 writes:
-  - Nothing outside this machine. It saves the events it read in its own folder, so its tab can show them.
+  - Nothing outside this machine. It saves the events it read in its own folder, so its tab can show them, and the calendars you add or remove in its config file.
 
+# Your calendars are a list in its Settings pop-up (ui/calendar.js), as many as you like: the add-calendar and
+# remove-calendar actions write them to its config. The three addresses below are from before that list; the desk keeps
+# listing a secret once an elf has had it, and they show up in the list like any other.
 settings:
-  - key: CAL1_NAME
-    label: First calendar's name
-    help: A short name for it on the desk, like Gmail.
-    kind: text
-    default: Gmail
   - key: CAL1_ICS_SECRET
-    label: First calendar's address
-    help: "Its private iCal address. In Google Calendar: Settings, your calendar, Integrate calendar, Secret address in iCal format. In Outlook on the web: Settings, Calendar, Shared calendars, Publish a calendar with Can view all details, then copy the ICS link. Leave it empty to skip this calendar."
+    label: Calendar 1's address (older setup)
+    help: From before Calendar had its list of calendars. Add, remove and name your calendars in Your calendars, above.
     kind: secret
     optional: true
-  - key: CAL2_NAME
-    label: Second calendar's name
-    help: A short name for it on the desk, like Red Hat.
-    kind: text
-    default: Red Hat
   - key: CAL2_ICS_SECRET
-    label: Second calendar's address
-    help: Its private iCal address, found the same way as the first. If your work's Google account has no Secret address field, your admin has turned it off. Leave it empty to skip this calendar.
+    label: Calendar 2's address (older setup)
+    help: From before Calendar had its list of calendars. Add, remove and name your calendars in Your calendars, above.
     kind: secret
     optional: true
-  - key: CAL3_NAME
-    label: Third calendar's name
-    help: A short name for it on the desk, like IBM.
-    kind: text
-    default: IBM
   - key: CAL3_ICS_SECRET
-    label: Third calendar's address
-    help: "Its private iCal address. For Office 365: Outlook on the web, Settings, Calendar, Shared calendars, Publish a calendar, choose Can view all details (otherwise meeting links are left out), then copy the ICS link. Leave it empty to skip this calendar."
+    label: Calendar 3's address (older setup)
+    help: From before Calendar had its list of calendars. Add, remove and name your calendars in Your calendars, above.
     kind: secret
     optional: true
   - key: WEEKS_AHEAD
@@ -73,7 +61,28 @@ dry-run: dry-run
 tab:
   page: ui/calendar.js
   card: true
+  settings: true
 refresh:
   command: refresh
   schedule: "Mon..Fri *-*-* 7..18:00"
 data: [events]
+
+# Its Settings list of calendars. They change only its own config on this machine: nothing is sent anywhere.
+actions:
+  calendars:
+    label: List your calendars
+    args: [--action=calendars]
+    ask: false
+  add-calendar:
+    label: Add calendar
+    args: [--action=add]
+    ask: false
+    params:
+      name: {max: 40, pattern: "[\\p{L}\\p{N} ._'&()+-]{1,40}"}
+      address: {max: 500, pattern: "(?i)(https|webcal)://[\\x21-\\x7e]{3,490}"}
+  remove-calendar:
+    label: Remove calendar
+    confirm: Remove this calendar? You'll need its iCal address to add it again.
+    args: [--action=remove]
+    params:
+      slot: {kind: int}
