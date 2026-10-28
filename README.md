@@ -83,8 +83,9 @@ keeps them for the next Google calendar (`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_S
 
 1. Make a project, any name.
 2. *APIs & Services*, *Library*: find **Google Calendar API** and click *Enable*.
-3. *APIs & Services*, *OAuth consent screen*: *External*, an app name and your email. Under *Test users*, add the work
-   address you'll sign in with, so you can sign in without Google reviewing the app.
+3. *APIs & Services*, *OAuth consent screen*: *External*, an app name and your email. Then *Publish app*, so it's *In
+   production*: Google signs an app left in *Testing* out every 7 days. Signing in then warns that Google hasn't
+   verified the app; it's yours, so click *Advanced* and go on.
 4. *APIs & Services*, *Credentials*: *Create credentials*, *OAuth client ID*, *Desktop app*. Copy its *Client ID* and
    *Client secret* into Calendar.
 

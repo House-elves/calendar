@@ -888,8 +888,9 @@ class CalendarSettings extends LitElement {
                     <li>At <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">Google Cloud</a>,
                         make a project (any name), signed in with any Google account.</li>
                     <li>Under APIs &amp; Services, Library, find Google Calendar API and click Enable.</li>
-                    <li>Under APIs &amp; Services, OAuth consent screen: External, your app's name and your email. Add your
-                        work address under Test users, so you can sign in before Google reviews the app.</li>
+                    <li>Under APIs &amp; Services, OAuth consent screen: External, your app's name and your email. Then
+                        Publish app, so it's In production: an app left in Testing has Google sign you out every 7 days.
+                        Signing in then warns that Google hasn't verified the app: it's yours, so click Advanced and go on.</li>
                     <li>Under APIs &amp; Services, Credentials: Create credentials, OAuth client ID, Desktop app. Copy its
                         Client ID and Client secret here.</li>
                 </ol>

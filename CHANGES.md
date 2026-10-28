@@ -3,6 +3,10 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.11.1
+
+- Making your Google client: publish it, rather than adding yourself as a test user, or Google signs you out every 7 days.
+
 ## 0.11.0
 
 - New: **Sign in to Google**, for a Google Workspace calendar whose admin turned off the secret iCal address. Add
