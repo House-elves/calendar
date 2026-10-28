@@ -1,7 +1,7 @@
 # A House Elves elf: what Elf Desk needs to install, set up and run calendar. AGENTS.md says what each field means.
 name: calendar
 title: Calendar
-version: 0.6.0
+version: 0.7.0
 author: "@phillip-kruger"
 description: Puts all your calendars, Gmail, Google Workspace, Office 365, iCloud, any other with an iCal address or .ics file, or the ones Evolution, Thunderbird or Apple Calendar already keep on this machine, together in one day, week or month view, with every event's details and a link to join each meeting.
 main: Calendar.java
@@ -13,7 +13,7 @@ tools: []
 reads:
   - "Your calendars, through the private iCal addresses you add in its Settings, from the server each address names: Google Calendar (calendar.google.com) for Gmail and Google Workspace, Outlook (outlook.office365.com) for Office 365, iCloud, or any other. And the .ics files on this machine you add there instead, for a calendar that has no such address. It reads nothing else."
   - "The calendars Evolution (and GNOME Calendar), Thunderbird or Apple Calendar keep on this machine, if you pick one in its Settings: it reads a copy of their files and never changes them. When you click Find calendars there, it also lists the names of the .ics files in your Documents, Downloads and Desktop folders, so you can pick one."
-  - "Your Outlook calendar through Microsoft Graph (graph.microsoft.com), if you sign in to Microsoft in its Settings (at login.microsoftonline.com), as Thunderbird and Evolution do. It asks only to read your calendars and who you are, so it can't change or send anything."
+  - "Your Outlook calendar through Microsoft Graph (graph.microsoft.com), if you sign in to Microsoft in its Settings (at login.microsoftonline.com), as Thunderbird and Evolution do. It asks only to read your calendars and who you are, so it can't change or send anything. With an organisation's app that has a return address (as Evolution signs in), Microsoft's pass is the one that app is allowed, which could also change calendars; Calendar still only reads them."
 writes:
   - Nothing outside this machine. It saves the events it read in its own folder, so its tab can show them, and the calendars you add or remove in its config file. A Microsoft sign-in is kept in its own folder too, readable only by you, and goes when you remove its calendar.
 
@@ -37,6 +37,18 @@ settings:
   - key: MICROSOFT_APP_ID
     label: Microsoft app ID
     help: Only for Sign in to Microsoft, under Online, Microsoft, at the top. The Application (client) ID of an app registered in Microsoft Entra that may read calendars; Calendar's README says how to get one.
+    kind: text
+    default: ""
+    optional: true
+  - key: MICROSOFT_TENANT
+    label: Microsoft organisation
+    help: Only for an app your organisation registered for itself alone. Its Directory (tenant) ID, or its domain. Leave it empty for any account.
+    kind: text
+    default: ""
+    optional: true
+  - key: MICROSOFT_REDIRECT
+    label: Microsoft return address
+    help: Only for an app that won't take a sign-in code, like an organisation's app for Evolution. Its redirect URI, e.g. https://login.microsoftonline.com/common/oauth2/nativeclient. Sign in to Microsoft then gives a link, and you paste the address you land on.
     kind: text
     default: ""
     optional: true
@@ -99,6 +111,13 @@ actions:
     label: Finish signing in to Microsoft
     args: [--action=microsoft-check]
     ask: false
+  microsoft-finish:
+    label: Finish signing in to Microsoft with where its page landed
+    args: [--action=microsoft-finish]
+    ask: false
+    params:
+      # The blank page's address, with Microsoft's one-time code: only good with the key the sign-in kept.
+      address: {pattern: "https?://[\\x21-\\x7E]{10,4000}", max: 4100}
   local-calendars:
     label: Find calendars
     args: [--action=local]

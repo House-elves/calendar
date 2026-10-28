@@ -82,6 +82,8 @@ in the [Microsoft Entra admin center](https://entra.microsoft.com): *App registr
 *Application (client) ID* into Calendar's settings. Under *Authentication*, turn on *Allow public client flows*; under
 *API permissions*, add Microsoft Graph's delegated `Calendars.Read` and `User.Read`.
 
+Your organisation may already have an app it allows for your calendar, for example one it registered for Evolution, that won't take a sign-in code. Calendar can sign in with it the way Evolution does. Set **Microsoft app ID**, **Microsoft organisation** (its tenant ID) and **Microsoft return address** (its redirect URI, for example `https://login.microsoftonline.com/common/oauth2/nativeclient`) from that app's settings. In Evolution they're under the account's *Advanced settings*. **Sign in to Microsoft** then gives a link instead of a code. Sign in there, and you land on a blank page. Copy its whole address and paste it into Calendar straight away. Such an app is allowed to change calendars (`Calendars.ReadWrite`), so that's the permission Microsoft gives Calendar, but Calendar still only reads them. Using an app your organisation registered for another program is between you and your organisation, so check that it's allowed.
+
 Thunderbird and Evolution work at your organisation because your admin has allowed them. If signing in says your
 organisation has to allow Calendar's app first, send your admin its app ID and ask them to grant it `Calendars.Read`:
 it's the same kind of permission they gave Thunderbird, and less of it.

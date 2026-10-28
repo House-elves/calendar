@@ -573,8 +573,9 @@ class CalendarSettings extends LitElement {
         const a = this._answer;
         // Only Microsoft's own sign-in page, as the script checked it.
         const url = /^https:\/\/((www\.)?microsoft\.com|login\.microsoftonline\.com)\//.test(a?.url ?? '') ? a.url : 'https://microsoft.com/devicelogin';
-        this._signin = { code: a?.code, url };
+        this._signin = { code: a?.code, url, paste: !!a?.paste };
         ev.target.reset();
+        if (a?.paste) return;
         const wait = Math.max(3, Math.min(30, a?.interval ?? 5)) * 1000;
         const check = async () => {
             if (!this._signin) return;
@@ -591,6 +592,17 @@ class CalendarSettings extends LitElement {
             elf.run('refresh').catch(() => {});
         };
         this._poll = setTimeout(check, wait);
+    }
+
+    /** An app with a return address: the address Microsoft's page landed on, its one-time code in it. */
+    async _finish(ev) {
+        ev.preventDefault();
+        const address = ev.target.address.value.trim();
+        if (!address) return;
+        if (await this._act('microsoft-finish', { address })) {
+            this._signin = null;
+            elf.run('refresh').catch(() => {});
+        }
     }
 
     /** What Evolution, Thunderbird or Apple Calendar keep on this machine, and .ics files you saved, to tick and add. */
@@ -668,9 +680,20 @@ class CalendarSettings extends LitElement {
                     </span>
                     ${tip(signIn ? html`Reads your Outlook calendar the way Thunderbird and Evolution do, and can't change
                         anything. It needs a Microsoft app ID, set below in these settings (the README says how to get one),
-                        and your admin may have to allow that app, as they did for Thunderbird.` : p.help)}
+                        and your admin may have to allow that app, as they did for Thunderbird. An organisation's app that
+                        won't take a code also needs Microsoft organisation and Microsoft return address.` : p.help)}
                 </div>` : ''}
-                ${signIn ? this._signin ? html`<div class="code" role="status">
+                ${signIn ? this._signin?.paste ? html`<div class="code" role="status">
+                    <p><a href=${this._signin.url} target="_blank" rel="noopener">Open Microsoft's sign-in</a> and sign in to your
+                        work account. You land on a blank page: copy its whole address from the address bar and paste it here
+                        straight away, as the code in it only lasts a few minutes.</p>
+                    <form class="ms" @submit=${this._finish}>
+                        <input name="address" type="url" required autocomplete="off" spellcheck="false" aria-label="The blank page's address"
+                            placeholder="https://…?code=…">
+                        <button type="submit" ?disabled=${this._busy}>Finish signing in</button>
+                        <button type="button" class="quiet sm" @click=${() => this._signin = null}>Stop</button>
+                    </form>
+                </div>` : this._signin ? html`<div class="code" role="status">
                     <p>Open <a href=${this._signin.url} target="_blank" rel="noopener">${this._signin.url}</a>, type this code
                         and sign in to your work or school account:</p>
                     <p><b>${this._signin.code}</b></p>

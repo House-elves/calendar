@@ -17,8 +17,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -34,16 +38,33 @@ import java.util.regex.Pattern;
  * turned off publishing an iCal address. Signing in uses Microsoft's device code: it shows a code, you type it at
  * microsoft.com/devicelogin in your browser, so your password never passes through here.
  *
+ * An app that won't take a code (an organisation's app for Evolution, say) signs in as Evolution does instead: you
+ * open Microsoft's page, sign in, and paste the address you land on (the app's return address, with a one-time code)
+ * into Settings. Such an app is allowed to change calendars rather than only read them, so that's the pass Microsoft
+ * gives; Calendar still only reads.
+ *
  * Its sign-in is kept in ~/.config/calendar/microsoft.json, owner-only, never in a folder the tab reads. The calendar's
  * slot in the config has the address microsoft:your@address, which says which sign-in to use.
  */
 public class Microsoft {
 
     static final Path FILE = Config.DIR.resolve("microsoft.json");
-    static final String LOGIN = "https://login.microsoftonline.com/common/oauth2/v2.0/";
-    static final String GRAPH = "https://graph.microsoft.com/v1.0/";
+    /** Not final: a test answers in Microsoft's place. */
+    static String login = "https://login.microsoftonline.com/";
+    /** Not final: a test answers in Microsoft's place. */
+    static String GRAPH = "https://graph.microsoft.com/v1.0/";
     /** Read your calendars, keep signed in, and know whose they are: nothing that can change or send anything. */
     static final String SCOPES = "offline_access User.Read Calendars.Read";
+    /**
+     * With a return address: what an organisation's app for Evolution is allowed, of calendars, so no admin is asked.
+     * It allows changing them, not only reading; Calendar asks Graph only to read.
+     */
+    static final String ORG_SCOPES = "offline_access User.Read https://graph.microsoft.com/Calendars.ReadWrite";
+    static final Duration PASTE_WAIT = Duration.ofMinutes(30);
+    /** An organisation's tenant: its ID, a domain, or common / organizations. */
+    static final Pattern TENANT = Pattern.compile("[A-Za-z0-9][A-Za-z0-9.-]{0,99}");
+    /** A return address: HTTPS, or this machine. */
+    static final Pattern REDIRECT = Pattern.compile("(https://[A-Za-z0-9.-]{1,253}|http://(localhost|127\\.0\\.0\\.1)(:\\d{1,5})?)(/[\\x21-\\x7E&&[^?#]]{0,300})?");
     static final Pattern APP_ID = Pattern.compile("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
     static final Pattern ACCOUNT = Pattern.compile("[\\w.+'-]{1,64}@[\\w.-]{1,250}");
 
@@ -58,14 +79,63 @@ public class Microsoft {
         return id;
     }
 
-    /** Starts signing in: answers the code to type and where. Remembers the sign-in's own code and the calendar's name. */
+    /** The organisation Microsoft signs in at: Microsoft organisation in Settings, else any (common). */
+    static String tenant() throws IOException {
+        String t = Config.raw().getOrDefault("MICROSOFT_TENANT", "").strip();
+        if (t.isEmpty()) return "common";
+        if (!TENANT.matcher(t).matches()) {
+            throw new IllegalArgumentException("Microsoft organisation in Settings should be its Directory (tenant) ID or its domain, like contoso.com.");
+        }
+        return t;
+    }
+
+    /** Microsoft return address in Settings, for an app that won't take a code; null without one. */
+    static String redirect() throws IOException {
+        String r = Config.raw().getOrDefault("MICROSOFT_REDIRECT", "").strip();
+        if (r.isEmpty()) return null;
+        if (!REDIRECT.matcher(r).matches()) {
+            throw new IllegalArgumentException("Microsoft return address in Settings should be the app's redirect URI, like https://login.microsoftonline.com/common/oauth2/nativeclient.");
+        }
+        return r;
+    }
+
+    static String login(String tenant) {
+        return login + tenant + "/oauth2/v2.0/";
+    }
+
+    /**
+     * Starts signing in: answers the code to type and where. Remembers the sign-in's own code and the calendar's name.
+     * With a return address, it answers {url, paste: true} instead: Microsoft's page to sign in at, and you paste where
+     * you land into {@link #finish}.
+     */
     static ObjectNode start(HttpClient http, String name) throws IOException, InterruptedException {
         name = name.strip();
         if (!Config.NAME.matcher(name).matches()) throw new IllegalArgumentException("Give it a short name: letters, digits and spaces, up to 40.");
-        JsonNode r = post(http, LOGIN + "devicecode", Map.of("client_id", appId(), "scope", SCOPES));
+        String clientId = appId(), tenant = tenant(), redirect = redirect();
+        if (redirect != null) {
+            String verifier = random(48), state = random(24);
+            ObjectNode saved = saved();
+            saved.putObject("pending").put("state", state).put("verifier", verifier).put("tenant", tenant).put("redirect", redirect)
+                    .put("name", name).put("until", Instant.now().plus(PASTE_WAIT).toString());
+            save(saved);
+            Map<String, String> q = new java.util.LinkedHashMap<>();
+            q.put("client_id", clientId);
+            q.put("response_type", "code");
+            q.put("redirect_uri", redirect);
+            q.put("response_mode", "query");
+            q.put("scope", "openid profile " + ORG_SCOPES);
+            q.put("code_challenge", Base64.getUrlEncoder().withoutPadding().encodeToString(sha256(verifier)));
+            q.put("code_challenge_method", "S256");
+            q.put("state", state);
+            q.put("prompt", "select_account");
+            StringJoiner query = new StringJoiner("&");
+            q.forEach((k, v) -> query.add(k + "=" + URLEncoder.encode(v, StandardCharsets.UTF_8)));
+            return Calendar.JSON.createObjectNode().put("url", login(tenant) + "authorize?" + query).put("paste", true);
+        }
+        JsonNode r = post(http, login(tenant) + "devicecode", Map.of("client_id", clientId, "scope", SCOPES));
         if (!r.hasNonNull("device_code") || !r.hasNonNull("user_code")) throw new IllegalArgumentException("Microsoft wouldn't start signing in: " + error(r));
         ObjectNode saved = saved();
-        saved.putObject("pending").put("deviceCode", r.get("device_code").asText()).put("name", name)
+        saved.putObject("pending").put("deviceCode", r.get("device_code").asText()).put("name", name).put("tenant", tenant)
                 .put("until", Instant.now().plusSeconds(r.path("expires_in").asLong(900)).toString());
         save(saved);
         // Only Microsoft's own sign-in page is shown as a link.
@@ -88,7 +158,8 @@ public class Microsoft {
             save(saved);
             throw new IllegalArgumentException("The code ran out before you signed in. Click Sign in to Microsoft again.");
         }
-        JsonNode r = post(http, LOGIN + "token", Map.of("client_id", appId(), "grant_type", "urn:ietf:params:oauth:grant-type:device_code",
+        String tenant = pending.path("tenant").asText("common");
+        JsonNode r = post(http, login(tenant) + "token", Map.of("client_id", appId(), "grant_type", "urn:ietf:params:oauth:grant-type:device_code",
                 "device_code", pending.get("deviceCode").asText()));
         String err = r.path("error").asText("");
         if (err.equals("authorization_pending") || err.equals("slow_down")) return Calendar.JSON.createObjectNode().put("waiting", true);
@@ -99,6 +170,12 @@ public class Microsoft {
             throw new IllegalArgumentException(err.equals("authorization_declined") ? "You said no in the browser, so it isn't signed in."
                     : err.equals("expired_token") ? "The code ran out before you signed in. Click Sign in to Microsoft again." : "Couldn't sign in: " + error(r));
         }
+        return keep(http, saved, r, name, tenant, false);
+    }
+
+    /** Keeps a sign-in Microsoft just gave, under its mailbox's address, and adds its calendar: answers its slot. */
+    private static ObjectNode keep(HttpClient http, ObjectNode saved, JsonNode r, String name, String tenant, boolean org)
+            throws IOException, InterruptedException {
         JsonNode me = get(http, URI.create(GRAPH + "me?$select=mail,userPrincipalName"), r.get("access_token").asText());
         String account = me.path("mail").asText("").isBlank() ? me.path("userPrincipalName").asText("") : me.path("mail").asText("");
         account = account.strip().toLowerCase(Locale.ROOT);
@@ -106,10 +183,50 @@ public class Microsoft {
             save(saved);
             throw new IllegalArgumentException("Signed in, but Microsoft didn't say which account it is. Try again.");
         }
-        saved.withObject("/accounts").putObject(account).put("refreshToken", r.get("refresh_token").asText());
+        ObjectNode kept = saved.withObject("/accounts").putObject(account).put("refreshToken", r.get("refresh_token").asText()).put("tenant", tenant);
+        if (org) kept.put("org", true);
         save(saved);
         int slot = Config.addMicrosoft(name, account);
         return Calendar.JSON.createObjectNode().put("added", slot);
+    }
+
+    /**
+     * Finishes a sign-in with a return address: {@code address} is where your browser landed after Microsoft's page,
+     * with its one-time code, only good with the key {@link #start} kept. Adds the calendar and answers its slot.
+     */
+    static ObjectNode finish(HttpClient http, String address) throws IOException, InterruptedException {
+        ObjectNode saved = saved();
+        JsonNode pending = saved.path("pending");
+        if (!pending.hasNonNull("state")) throw new IllegalArgumentException("Click Sign in to Microsoft first.");
+        if (Instant.parse(pending.path("until").asText(Instant.EPOCH.toString())).isBefore(Instant.now())) {
+            saved.remove("pending");
+            save(saved);
+            throw new IllegalArgumentException("That sign-in was started more than 30 minutes ago. Click Sign in to Microsoft again.");
+        }
+        String redirect = pending.path("redirect").asText(), tenant = pending.path("tenant").asText("common");
+        String pasted = address == null ? "" : address.strip();
+        int q = pasted.indexOf('?');
+        if (q < 0 || !pasted.substring(0, q).equals(redirect)) {
+            throw new IllegalArgumentException("That isn't the page you land on after signing in. Copy the whole address of the blank page, starting " + redirect + "?code=");
+        }
+        Map<String, String> got = query(pasted.substring(q + 1).replaceAll("#.*$", ""));
+        String name = pending.path("name").asText("Outlook");
+        if (got.containsKey("error")) {
+            saved.remove("pending");
+            save(saved);
+            throw new IllegalArgumentException(got.get("error").equals("access_denied") ? "You said no to Microsoft, so it isn't signed in."
+                    : "Microsoft said no: " + error(Calendar.JSON.createObjectNode().put("error", got.get("error"))
+                            .put("error_description", got.getOrDefault("error_description", ""))));
+        }
+        if (!pending.path("state").asText().equals(got.get("state"))) {
+            throw new IllegalArgumentException("That address is from another sign-in. Use the link it shows now, then paste where it lands.");
+        }
+        saved.remove("pending");
+        save(saved);
+        JsonNode r = post(http, login(tenant) + "token", Map.of("client_id", appId(), "grant_type", "authorization_code", "code",
+                got.getOrDefault("code", ""), "redirect_uri", redirect, "code_verifier", pending.path("verifier").asText(), "scope", ORG_SCOPES));
+        if (!r.hasNonNull("refresh_token") || !r.hasNonNull("access_token")) throw new IllegalArgumentException("Couldn't sign in: " + error(r));
+        return keep(http, saved, r, name, tenant, true);
     }
 
     /** Forgets a sign-in, when its calendar is removed and no other calendar uses it. */
@@ -124,11 +241,14 @@ public class Microsoft {
     /** A fresh pass to read the calendar with, from the kept sign-in. Keeps Microsoft's new sign-in when keep is set. */
     static String token(HttpClient http, String account, boolean keep) throws IOException, InterruptedException {
         ObjectNode saved = saved();
-        String refresh = saved.path("accounts").path(account).path("refreshToken").asText("");
+        JsonNode kept = saved.path("accounts").path(account);
+        String refresh = kept.path("refreshToken").asText("");
         if (refresh.isEmpty()) throw new IOException("it isn't signed in. Remove it in Settings and sign in to Microsoft again.");
         JsonNode r;
         try {
-            r = post(http, LOGIN + "token", Map.of("client_id", appId(), "grant_type", "refresh_token", "refresh_token", refresh, "scope", SCOPES));
+            // At the organisation it signed in at, for what that sign-in was given.
+            r = post(http, login(kept.path("tenant").asText(tenant())) + "token", Map.of("client_id", appId(), "grant_type", "refresh_token",
+                    "refresh_token", refresh, "scope", kept.path("org").asBoolean() ? ORG_SCOPES : SCOPES));
         } catch (IllegalArgumentException e) {
             throw new IOException(e.getMessage());
         }
@@ -138,7 +258,7 @@ public class Microsoft {
                     : "Microsoft wouldn't let it read: " + error(r));
         }
         if (keep && r.hasNonNull("refresh_token") && !r.get("refresh_token").asText().equals(refresh)) {
-            saved.withObject("/accounts").putObject(account).put("refreshToken", r.get("refresh_token").asText());
+            ((ObjectNode) saved.get("accounts").get(account)).put("refreshToken", r.get("refresh_token").asText());
             save(saved);
         }
         return r.get("access_token").asText();
@@ -294,10 +414,38 @@ public class Microsoft {
                     + " for reading calendars, as they did for Thunderbird or Evolution.";
         }
         if (d.contains("AADSTS53003") || d.contains("AADSTS50199")) return "your organisation's sign-in rules block it on this machine. Ask your admin.";
-        if (d.contains("AADSTS700016") || d.contains("AADSTS7000218")) return "Microsoft doesn't know that app ID, or it isn't set up as a public client. Check Microsoft app ID in Settings.";
+        if (d.contains("AADSTS7000218")) {
+            return "that app won't take a sign-in code. Turn on Allow public client flows in its Authentication settings, or set its redirect URI as Microsoft return address in Settings.";
+        }
+        if (d.contains("AADSTS50011")) return "the app doesn't know that return address. Check Microsoft return address in Settings.";
+        if (d.contains("AADSTS700016") || d.contains("AADSTS700038")) return "Microsoft doesn't know that app ID. Check Microsoft app ID in Settings.";
         // Microsoft's own words, first line only, with its trace numbers left out.
         d = d.lines().findFirst().orElse(d).replaceAll("Trace ID:.*|Correlation ID:.*|Timestamp:.*", "").strip();
         return Calendar.clip(d, 300);
+    }
+
+    static Map<String, String> query(String raw) {
+        Map<String, String> q = new HashMap<>();
+        for (String kv : raw.split("&")) {
+            int eq = kv.indexOf('=');
+            if (eq > 0) q.putIfAbsent(java.net.URLDecoder.decode(kv.substring(0, eq), StandardCharsets.UTF_8),
+                    java.net.URLDecoder.decode(kv.substring(eq + 1), StandardCharsets.UTF_8));
+        }
+        return q;
+    }
+
+    static String random(int bytes) {
+        byte[] b = new byte[bytes];
+        new SecureRandom().nextBytes(b);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(b);
+    }
+
+    static byte[] sha256(String s) {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(s.getBytes(StandardCharsets.US_ASCII));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     // ---- its file ----

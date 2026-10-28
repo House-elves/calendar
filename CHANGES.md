@@ -3,6 +3,11 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.7.0
+
+- Outlook at an organisation that only allows its own app, the way Evolution signs in: set **Microsoft organisation**
+  and **Microsoft return address**. Sign in to Microsoft then gives you a link, and you paste the address you land on.
+
 ## 0.6.0
 
 - New: a tidier Settings. Pick **On this machine** or **Online** to add a calendar, and the directions moved into a
