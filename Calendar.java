@@ -58,7 +58,7 @@ import java.util.regex.Pattern;
  * With --action it answers its Settings list: the calendars, adding one, signing in to Microsoft, removing one. It only reads: it never
  * changes a calendar, and sends nothing anywhere.
  */
-@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.12.1", description = "Reads your calendars for Elf Desk")
+@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.13.0", description = "Reads your calendars for Elf Desk")
 public class Calendar implements Callable<Integer> {
 
     static final ObjectMapper JSON = new ObjectMapper();
@@ -111,6 +111,8 @@ public class Calendar implements Callable<Integer> {
         int failed = 0;
         for (Config.Cal cal : config.calendars) {
             ObjectNode status = calendars.addObject().put("slot", cal.slot()).put("name", cal.name());
+            String picked = Config.colour(Config.raw(), cal.slot());
+            if (!picked.isEmpty()) status.put("colour", picked);
             try {
                 ArrayNode events = Config.isMicrosoft(cal.address())
                         ? Microsoft.events(http, cal.address().getSchemeSpecificPart(), cal.slot(), from, to, config.hideDeclined, save)
@@ -190,6 +192,7 @@ public class Calendar implements Callable<Integer> {
                 }
                 case "google-app" -> Google.setApp(in.path("app").asText(""), in.path("secret").asText(""));
                 case "google-sign-in" -> out.setAll(Google.start(in.path("name").asText("")));
+                case "set-colour" -> Config.setColour(in.path("slot").asInt(0), in.path("colour").asText(""));
                 case "google-check" -> out.setAll(Google.check());
                 case "microsoft-check" -> out.setAll(Microsoft.check(http()));
                 case "microsoft-finish" -> out.setAll(Microsoft.finish(http(), in.path("address").asText("")));
@@ -239,7 +242,7 @@ public class Calendar implements Callable<Integer> {
             if (set.isEmpty()) continue;
             URI address = Config.address(set);
             // One with a bad address is listed too, so it can be removed.
-            list.addObject().put("slot", i).put("name", Config.name(raw, i))
+            list.addObject().put("slot", i).put("name", Config.name(raw, i)).put("colour", Config.colour(raw, i))
                     .put("where", address == null ? "Not an iCal address" : Config.where(address)
                             + (address != null && (Config.isMicrosoft(address) || Config.isGoogle(address)) ? " as " + address.getSchemeSpecificPart() : ""));
         }

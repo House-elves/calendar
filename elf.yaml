@@ -1,7 +1,7 @@
 # A House Elves elf: what Elf Desk needs to install, set up and run calendar. AGENTS.md says what each field means.
 name: calendar
 title: Calendar
-version: 0.12.1
+version: 0.13.0
 author: "@phillip-kruger"
 description: Puts all your calendars, Gmail, Google Workspace, Office 365, iCloud, any other with an iCal address or .ics file, or the ones Evolution, Thunderbird, Apple Calendar or KOrganizer already keep on this machine, together in one day, week or month view, with every event's details and a link to join each meeting.
 main: Calendar.java
@@ -126,6 +126,13 @@ actions:
     params:
       name: {max: 40, pattern: "[\\p{L}\\p{N} ._'&()+-]{1,40}"}
       source: {max: 420, pattern: "(evolution|thunderbird|apple|akonadi):[\\w.@+-]{1,200}(/[\\w.@+-]{1,200}){0,2}"}
+  set-colour:
+    label: Set a calendar's colour
+    args: [--action=set-colour]
+    ask: false
+    params:
+      slot: {kind: int}
+      colour: {max: 7, pattern: "#[0-9a-fA-F]{6}"}
   remove-calendar:
     label: Remove calendar
     confirm: Remove this calendar? You'll need its iCal address to add it again.

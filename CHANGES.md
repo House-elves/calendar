@@ -3,6 +3,11 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.13.0
+
+- New: pick each calendar's colour when you add it, from ten or any colour of your own. It starts on one no other
+  calendar has. Click a calendar's dot in Settings to change it later.
+
 ## 0.12.1
 
 - Adding a KOrganizer calendar works: 0.12.0 listed them but said "source isn't valid" when you added one.

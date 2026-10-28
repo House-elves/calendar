@@ -73,6 +73,23 @@ public class Config {
         return c;
     }
 
+    /** A calendar's colour, as #rrggbb: the one picked when it was added, else empty and the tab picks by its slot. */
+    static final Pattern COLOUR = Pattern.compile("#[0-9a-fA-F]{6}");
+
+    static String colour(Map<String, String> raw, int slot) {
+        String c = raw.getOrDefault("CAL" + slot + "_COLOR", "").strip();
+        return COLOUR.matcher(c).matches() ? c.toLowerCase(Locale.ROOT) : "";
+    }
+
+    /** Sets a calendar's colour, from its Settings list. */
+    static void setColour(int slot, String colour) throws IOException {
+        if (slot < 1 || slot > MAX || raw().getOrDefault("CAL" + slot + "_ICS_SECRET", "").isBlank()) {
+            throw new IllegalArgumentException("There's no such calendar.");
+        }
+        if (!COLOUR.matcher(colour).matches()) throw new IllegalArgumentException("That isn't a colour.");
+        set(Map.of("CAL" + slot + "_COLOR", colour.toLowerCase(Locale.ROOT)));
+    }
+
     static String name(Map<String, String> raw, int slot) {
         String name = raw.getOrDefault("CAL" + slot + "_NAME", "").strip();
         return name.isEmpty() ? "Calendar " + slot : name;
@@ -227,7 +244,7 @@ public class Config {
 
     /** The config file with this slot's lines replaced, written whole and owner-only, as the desk writes it. */
     static void rewrite(int slot, Map<String, String> lines) throws IOException {
-        rewrite(Set.of("CAL" + slot + "_NAME", "CAL" + slot + "_ICS_SECRET"), lines);
+        rewrite(Set.of("CAL" + slot + "_NAME", "CAL" + slot + "_ICS_SECRET", "CAL" + slot + "_COLOR"), lines);
     }
 
     /** Settings Calendar's own Settings set, like the Microsoft app: an empty value takes its line out. */

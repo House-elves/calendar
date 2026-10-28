@@ -8,6 +8,8 @@ import {
 /** Each calendar's colour, by its slot (1 to 20): the first three are the colours it always had. */
 const PALETTE = ['#3b6fd8', '#c2410c', '#2f855a', '#8b5cf6', '#b45309', '#0e7490', '#be185d', '#4d7c0f', '#6d28d9', '#a16207'];
 const colour = slot => PALETTE[(slot - 1) % PALETTE.length];
+/** A calendar's colour: the one picked for it, else its slot's. */
+const colourOf = (cals, slot) => cals?.find(c => c.slot === slot)?.colour || colour(slot);
 const DAY = 86400000;
 
 async function saved() {
@@ -191,7 +193,7 @@ class CalendarTab extends LitElement {
     }
 
     _colour(e) {
-        return colour(e.calendars.find(c => !this._hidden.has(c)) ?? e.calendars[0]);
+        return colourOf(this._data?.calendars, e.calendars.find(c => !this._hidden.has(c)) ?? e.calendars[0]);
     }
 
     _name(slot) {
@@ -326,7 +328,7 @@ class CalendarTab extends LitElement {
                     <ul class="people">${e.attendees.map(p => html`<li>${who(p)}${
                     p.answer && answers[p.answer] ? html` <span class="muted">(${answers[p.answer]})</span>` : ''}</li>`)}
                     ${e.moreAttendees ? html`<li class="muted">and ${e.moreAttendees} more</li>` : ''}</ul></details></dd>` : ''}
-                <dt>Calendar</dt><dd>${e.calendars.map((c, i) => html`${i ? ', ' : ''}<span class="dot" style="background:${colour(c)}"></span> ${this._name(c)}`)}</dd>
+                <dt>Calendar</dt><dd>${e.calendars.map((c, i) => html`${i ? ', ' : ''}<span class="dot" style="background:${colourOf(this._data?.calendars, c)}"></span> ${this._name(c)}`)}</dd>
             </dl>
             ${e.description ? html`<pre>${this._linked(e.description, e.links)}</pre>` : ''}`;
     }
@@ -404,7 +406,7 @@ class CalendarTab extends LitElement {
                             @click=${() => this._setView(v)}>${v[0].toUpperCase() + v.slice(1)}</button>`)}</span>
                     </div>
                     <div class="cals">${cals.map(c => html`<label><input type="checkbox" .checked=${!this._hidden.has(c.slot)}
-                        @change=${() => this._toggle(c.slot)}><span class="dot" style="background:${colour(c.slot)}"></span>${c.name}</label>`)}</div>
+                        @change=${() => this._toggle(c.slot)}><span class="dot" style="background:${colourOf(cals, c.slot)}"></span>${c.name}</label>`)}</div>
                     ${outside ? html`<p class="panel empty">This is outside what was read (${longDay(dayOf(d.from))} to ${
                         longDay(addDays(dayOf(d.to), -1))}). Raise Weeks ahead in Settings to read further.</p>` : ''}
                     ${body}` : ''}
@@ -530,7 +532,7 @@ class CalendarSettings extends LitElement {
 
     static properties = { _list: { state: true }, _max: { state: true }, _error: { state: true }, _busy: { state: true },
         _signin: { state: true }, _found: { state: true }, _step: { state: true }, _provider: { state: true },
-        _picked: { state: true }, _ms: { state: true }, _org: { state: true }, _said: { state: true }, _evo: { state: true }, _g: { state: true } };
+        _picked: { state: true }, _ms: { state: true }, _org: { state: true }, _said: { state: true }, _evo: { state: true }, _g: { state: true }, _hue: { state: true }, _recolour: { state: true } };
 
     static styles = [shared, css`
         :host { display: grid; gap: 14px; }
@@ -538,6 +540,13 @@ class CalendarSettings extends LitElement {
         li { display: flex; align-items: center; gap: 10px; font-size: 14px; }
         li label { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; min-width: 0; font-size: 14px; color: inherit; }
         .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+        .dot-btn { padding: 4px; border: 0; background: none; border-radius: 50%; line-height: 0; cursor: pointer; }
+        .dot-btn .dot { width: 14px; height: 14px; }
+        .swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+        .swatches button { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 2px solid transparent; }
+        .swatches button[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 2px var(--surface); }
+        .swatches input[type="color"] { width: 30px; height: 26px; padding: 0; border: 0; background: none; cursor: pointer; }
+        .recolour { padding-left: 28px; }
         .where { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .spacer { flex: 1; }
         .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -604,12 +613,38 @@ class CalendarSettings extends LitElement {
         }
     }
 
+    /** The colours to pick from, the picked one marked, and any other colour of your own. */
+    _swatches(picked, pick) {
+        return html`<div class="swatches" role="group" aria-label="Colour">
+            ${PALETTE.map(c => html`<button type="button" style="background:${c}" aria-label=${c} aria-pressed=${picked === c}
+                @click=${() => pick(c)}></button>`)}
+            <input type="color" aria-label="Another colour" title="Another colour" .value=${picked} @change=${e => pick(e.target.value)}>
+        </div>`;
+    }
+
+    /** The first colour no calendar has yet, for the next one. */
+    _freeColour() {
+        const used = new Set((this._list ?? []).map(c => colourOf(this._list, c.slot)));
+        return PALETTE.find(c => !used.has(c)) ?? PALETTE[(this._list?.length ?? 0) % PALETTE.length];
+    }
+
+    async _setColour(slot, value) {
+        if (await this._act('set-colour', { slot, colour: value })) this._recolour = null;
+    }
+
+    /** A calendar just added gets the colour picked for it. */
+    async _colourAdded(colourPicked) {
+        const slot = this._answer?.added;
+        if (Number.isInteger(slot) && colourPicked) await this._act('set-colour', { slot, colour: colourPicked });
+    }
+
     /** Goes to a step of Add calendar; null closes it. */
     _go(step) {
         clearTimeout(this._poll);
         this._signin = null;
         this._error = null;
         this._said = null;
+        if (step === 'provider' || !this._step) this._hue = this._freeColour();
         this._step = step;
         if (step === 'ms-app') {
             this._org = null;
@@ -646,7 +681,10 @@ class CalendarSettings extends LitElement {
             this._error = `Give it a name and paste its ${PROVIDERS[this._provider].field}.`;
             return;
         }
-        if (await this._act('add-calendar', { name, address })) this._added(name);
+        if (await this._act('add-calendar', { name, address })) {
+            await this._colourAdded(this._hue);
+            this._added(name);
+        }
     }
 
     /** The app it signs in to Microsoft as, kept in its settings for the next calendar too. */
@@ -698,6 +736,7 @@ class CalendarSettings extends LitElement {
                 this._poll = setTimeout(check, wait);
                 return;
             }
+            await this._colourAdded(this._hue);
             this._added(name);
         };
         this._poll = setTimeout(check, wait);
@@ -708,7 +747,10 @@ class CalendarSettings extends LitElement {
         ev.preventDefault();
         const address = ev.target.address.value.trim();
         if (!address) return;
-        if (await this._act('microsoft-finish', { address })) this._added(this._signin?.name ?? 'your Outlook calendar');
+        if (await this._act('microsoft-finish', { address })) {
+            await this._colourAdded(this._hue);
+            this._added(this._signin?.name ?? 'your Outlook calendar');
+        }
     }
 
     /** What KOrganizer, Evolution, Thunderbird or Apple Calendar keep on this machine, and .ics files you saved, to tick and add. */
@@ -734,6 +776,8 @@ class CalendarSettings extends LitElement {
             const ok = f.file ? await this._act('add-calendar', { name, address: f.source })
                 : await this._act('add-local-calendar', { name, source: f.source });
             if (!ok) break;
+            // The picked colour for the first, then the next free ones.
+            await this._colourAdded(added ? this._freeColour() : this._hue);
             added++;
         }
         if (added) this._added(added > 1 ? `${added} calendars` : '1 calendar');
@@ -960,6 +1004,7 @@ class CalendarSettings extends LitElement {
                 this._poll = setTimeout(check, wait);
                 return;
             }
+            await this._colourAdded(this._hue);
             this._added(name);
         };
         this._poll = setTimeout(check, wait);
@@ -974,6 +1019,8 @@ class CalendarSettings extends LitElement {
         return html`<section class="wizard" aria-labelledby="add-h">
             <h3 id="add-h">${s === 'provider' ? 'Where is the calendar?' : html`Add a calendar <span>from ${where}</span>`}</h3>
             ${this._error ? html`<p class="error" role="alert">${this._error}</p>` : ''}
+            ${['link', 'local', 'ms-signin', 'g-signin'].includes(s) && !this._signin ? html`<div class="row"><span class="help">Colour</span>
+                ${this._swatches(this._hue, v => { this._hue = v; })}</div>` : ''}
             ${s === 'provider' ? this._choices() : s === 'ms-how' ? this._msHow() : s === 'ms-app' ? this._msApp()
                 : s === 'ms-signin' ? this._msSignIn() : s === 'g-how' ? this._gHow() : s === 'g-app' ? this._gApp()
                 : s === 'g-signin' ? this._gSignIn() : s === 'local' ? this._local() : this._link()}
@@ -989,9 +1036,12 @@ class CalendarSettings extends LitElement {
         const full = list && this._max && list.length >= this._max;
         return html`
             ${!list ? html`<div class="skeleton"></div>` : list.length ? html`<ul>${list.map(c => html`<li>
-                <span class="dot" style="background:${colour(c.slot)}"></span><span>${c.name}</span>
+                <button class="dot-btn" aria-label="Colour of ${c.name}" title="Change its colour" aria-expanded=${this._recolour === c.slot}
+                    @click=${() => { this._recolour = this._recolour === c.slot ? null : c.slot; }}><span class="dot"
+                    style="background:${colourOf(list, c.slot)}"></span></button><span>${c.name}</span>
                 <span class="where">${c.where}</span><span class="spacer"></span>
-                <button class="sm quiet" ?disabled=${this._busy || !!this._step} @click=${() => this._remove(c)}>Remove</button></li>`)}</ul>`
+                <button class="sm quiet" ?disabled=${this._busy || !!this._step} @click=${() => this._remove(c)}>Remove</button></li>
+                ${this._recolour === c.slot ? html`<li class="recolour">${this._swatches(colourOf(list, c.slot), v => this._setColour(c.slot, v))}</li>` : ''}`)}</ul>`
                 : html`<p class="empty">No calendars yet. Add calendar to put your first one here.</p>`}
             ${this._said ? html`<p class="help" role="status">${this._said}</p>` : ''}
             ${this._step ? this._wizard() : html`

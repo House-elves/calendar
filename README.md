@@ -31,7 +31,8 @@ even offline. If one calendar can't be read, it keeps showing what it read last 
 
 1. On Elf Desk, click **+** and pick **Calendar**.
 2. In its **Settings**, click **Add calendar**. It asks where the calendar is, then only what that one needs. Add as
-   many as you like (up to 20), one at a time; **Remove** takes one off again.
+   many as you like (up to 20), one at a time, each in a colour you pick; click its dot to change the colour, and
+   **Remove** takes one off again.
    - **On this machine:** it lists the calendars KOrganizer, Evolution, Thunderbird or Apple Calendar already keep here (see
      below), and the `.ics` files in your *Documents*, *Downloads* and *Desktop* folders (a few folders deep). Tick
      the ones you want and click **Add calendar**.
@@ -139,7 +140,8 @@ Anyone who has one of these addresses can read that calendar, so treat it like a
     jbang Calendar.java            # prints what it read, saves nothing
     jbang Calendar.java --save     # saved for its tab on Elf Desk
 
-Each calendar is a pair of lines in the config, `CAL<n>_NAME` and `CAL<n>_ICS_SECRET`, for `n` from 1 to 20. A
+Each calendar is a pair of lines in the config, `CAL<n>_NAME` and `CAL<n>_ICS_SECRET`, for `n` from 1 to 20, and
+`CAL<n>_COLOR` when you picked its colour. A
 calendar you signed in to Microsoft for has `microsoft:` and your account there instead of an address, and one from an
 app on this machine has `evolution:`, `thunderbird:` or `apple:` and where that app keeps it.
 The Microsoft app is `MICROSOFT_APP_ID`, `MICROSOFT_TENANT` and `MICROSOFT_REDIRECT`, set by *Add calendar*.
