@@ -75,14 +75,19 @@ Microsoft**; Settings shows a code. Open the link it shows (microsoft.com/device
 do. Your password goes only to Microsoft. Calendar asks only to read your calendars and who you are, so it can't
 change or send anything, and it stays signed in until you remove the calendar or your organisation takes it back.
 
-Microsoft only lets an app it knows sign in, so the first time it asks for an **app ID**, and keeps it in Calendar's
-settings (**Microsoft app ID**) for the next calendar. To make one,
+Microsoft only lets an app it knows sign in, so the first time it asks for an **app ID**, and keeps it for the next
+calendar. To make one,
 in the [Microsoft Entra admin center](https://entra.microsoft.com): *App registrations*, *New registration*, any name,
 *Accounts in any organizational directory and personal Microsoft accounts*, no redirect address. Copy its
 *Application (client) ID* when Calendar asks for it. Under *Authentication*, turn on *Allow public client flows*; under
 *API permissions*, add Microsoft Graph's delegated `Calendars.Read` and `User.Read`.
 
-Your organisation may already have an app it allows for your calendar, for example one it registered for Evolution, that won't take a sign-in code. Calendar can sign in with it the way Evolution does. When Calendar asks for the app, give its ID, tick *It's my organisation's own app*, and give its **Organisation** (its tenant ID) and **Return address** (its redirect URI, for example `https://login.microsoftonline.com/common/oauth2/nativeclient`) from that app's settings. In Evolution they're under the account's *Advanced settings*. **Sign in to Microsoft** then gives a link instead of a code. **Change app** sets another one. Sign in there, and you land on a blank page. Copy its whole address and paste it into Calendar straight away. Such an app is allowed to change calendars (`Calendars.ReadWrite`), so that's the permission Microsoft gives Calendar, but Calendar still only reads them. Using an app your organisation registered for another program is between you and your organisation, so check that it's allowed.
+Your organisation may already have an app it allows for your calendar, for example one it registered for Evolution, that won't take a sign-in code. Microsoft says "Need admin approval" for any other app. Calendar can sign in with that app the way Evolution does:
+
+- If Evolution on this machine signs in with it, Calendar finds it and offers **Use Evolution's app**.
+- Otherwise, give its ID, tick *It's my organisation's own app*, and give its **Organisation** (its Directory (tenant) ID) and **Return address** (its redirect URI). Ask IT for them, or copy them from Evolution on your work computer: *Edit*, *Accounts*, your work account, *Edit*, then under *Receiving Email*, *Override Microsoft 365 (or Office365) OAuth2 settings*: *Tenant*, *Application ID* and *Redirect URI*. An empty *Redirect URI* there means `https://login.microsoftonline.com/common/oauth2/nativeclient`. They're also in Evolution's account file in `~/.config/evolution/sources/`, as `Oauth2Tenant`, `Oauth2ClientId` and `Oauth2RedirectUri`.
+
+**Sign in to Microsoft** then gives a link instead of a code. Sign in there, and you land on a blank page. Copy its whole address and paste it into Calendar straight away. **Change app** sets another app. Such an app is allowed to change calendars (`Calendars.ReadWrite`), so that's the permission Microsoft gives Calendar, but Calendar still only reads them. Using an app your organisation registered for another program is between you and your organisation, so check that it's allowed.
 
 Thunderbird and Evolution work at your organisation because your admin has allowed them. If signing in says your
 organisation has to allow Calendar's app first, send your admin its app ID and ask them to grant it `Calendars.Read`:

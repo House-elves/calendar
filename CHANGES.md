@@ -3,6 +3,14 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.9.0
+
+- The Microsoft app is part of **Add calendar** only: Microsoft app ID, organisation and return address are gone from the
+  settings list below. What you set there is kept.
+- **Use Evolution's app**: when Evolution on this machine signs in to Microsoft with your organisation's own app,
+  Calendar finds it, so you don't have to look up its IDs.
+- **Where do I find these?** under the app's fields says where each value comes from.
+
 ## 0.8.1
 
 - **Refresh calendars** sits next to Settings at the top, so the calendar starts higher up the page.

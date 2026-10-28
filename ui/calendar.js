@@ -485,7 +485,7 @@ class CalendarSettings extends LitElement {
 
     static properties = { _list: { state: true }, _max: { state: true }, _error: { state: true }, _busy: { state: true },
         _signin: { state: true }, _found: { state: true }, _step: { state: true }, _provider: { state: true },
-        _picked: { state: true }, _ms: { state: true }, _org: { state: true }, _said: { state: true } };
+        _picked: { state: true }, _ms: { state: true }, _org: { state: true }, _said: { state: true }, _evo: { state: true } };
 
     static styles = [shared, css`
         :host { display: grid; gap: 14px; }
@@ -515,6 +515,10 @@ class CalendarSettings extends LitElement {
         .code p { margin: 0; }
         .code b { font-family: var(--mono, monospace); font-size: 18px; letter-spacing: 0.08em; user-select: all; }
         .app { font-family: var(--mono, monospace); font-size: 13px; }
+        details { font-size: 13px; color: var(--muted); }
+        summary { cursor: pointer; color: var(--accent); }
+        .where-from { display: grid; gap: 8px; margin: 8px 0 0; padding-left: 18px; list-style: disc; max-width: 44rem; }
+        .where-from li { display: list-item; font-size: 13px; }
         @media (max-width: 560px) { .fields { grid-template-columns: 1fr; } }
     `];
 
@@ -560,7 +564,10 @@ class CalendarSettings extends LitElement {
         this._error = null;
         this._said = null;
         this._step = step;
-        if (step === 'ms-app') this._org = null;
+        if (step === 'ms-app') {
+            this._org = null;
+            this._act('microsoft-evolution', {}).then(ok => { this._evo = ok ? this._answer?.evolution ?? [] : []; });
+        }
     }
 
     /** Where each step's Back goes. */
@@ -707,26 +714,48 @@ class CalendarSettings extends LitElement {
     _msApp() {
         const ms = this._ms ?? {};
         const org = this._org ?? !!(ms.tenant || ms.redirect);
-        return html`<form @submit=${this._setApp}>
-            <p class="help">Microsoft only lets an app it knows read a calendar, so Calendar signs in as one. Use the
-                Application (client) ID of an app registered in Microsoft Entra: one you made (<a href=${README}
-                target="_blank" rel="noopener">the README says how</a>), or one your organisation already allows, like
-                the one its Evolution uses. Calendar keeps it for the next calendar too.</p>
-            <label>App ID<input name="app" type="text" maxlength="36" autocomplete="off" spellcheck="false" .value=${ms.app ?? ''}
-                placeholder="1a2b3c4d-1a2b-1a2b-1a2b-1a2b3c4d5e6f"></label>
-            <label class="check"><input name="org" type="checkbox" .checked=${org} @change=${e => this._org = e.target.checked}>
-                It's my organisation's own app, like the one Evolution uses</label>
-            ${org ? html`<div class="fields">
-                <label>Organisation<input name="tenant" type="text" maxlength="100" autocomplete="off" spellcheck="false"
-                    .value=${ms.tenant ?? ''} placeholder="Directory (tenant) ID or contoso.com"></label>
-                <label>Return address<input name="redirect" type="url" maxlength="400" autocomplete="off" spellcheck="false"
-                    .value=${ms.redirect ?? ''} placeholder="https://login.microsoftonline.com/common/oauth2/nativeclient"></label>
-            </div>
-            <p class="help">Both are in the app's settings in Microsoft Entra, or in Evolution's account settings. Leave
-                Return address empty if the app takes a sign-in code.</p>` : html`
-            <p class="help">Your admin may have to allow the app first, as they allowed Thunderbird or Evolution.</p>`}
-            <div class="row"><button type="submit" class="primary" ?disabled=${this._busy}>${this._busy ? spinner : ''}Next</button></div>
-        </form>`;
+        const evo = this._evo ?? [];
+        return html`
+            ${evo.length ? html`<div class="code">
+                <p>Evolution on this machine signs in to Microsoft with your organisation's own app. Calendar can use the same one.</p>
+                <div class="row">${evo.map(a => html`<button class="primary" ?disabled=${this._busy} @click=${() => this._useApp(a)}>
+                    Use Evolution's app${evo.length > 1 && a.account ? ` (${a.account})` : ''}</button>`)}</div>
+                <p class="help">Or give one yourself:</p>
+            </div>` : ''}
+            <form @submit=${this._setApp}>
+                <p class="help">Microsoft only lets an app it knows read a calendar, so Calendar signs in as one. Calendar
+                    keeps it for your next Microsoft calendar too.</p>
+                <label>App ID<input name="app" type="text" maxlength="36" autocomplete="off" spellcheck="false" .value=${ms.app ?? ''}
+                    placeholder="1a2b3c4d-1a2b-1a2b-1a2b-1a2b3c4d5e6f"></label>
+                <label class="check"><input name="org" type="checkbox" .checked=${org} @change=${e => this._org = e.target.checked}>
+                    It's my organisation's own app, like the one Evolution uses</label>
+                ${org ? html`<div class="fields">
+                    <label>Organisation<input name="tenant" type="text" maxlength="100" autocomplete="off" spellcheck="false"
+                        .value=${ms.tenant ?? ''} placeholder="Directory (tenant) ID or contoso.com"></label>
+                    <label>Return address<input name="redirect" type="url" maxlength="400" autocomplete="off" spellcheck="false"
+                        .value=${ms.redirect ?? ''} placeholder="https://login.microsoftonline.com/common/oauth2/nativeclient"></label>
+                </div>` : ''}
+                <details>
+                    <summary>Where do I find these?</summary>
+                    <ul class="where-from">
+                        <li><b>Your organisation's own app</b>, when it allows only that one (Microsoft then says "Need admin
+                            approval" for other apps). Ask IT for the Application (client) ID, Directory (tenant) ID and
+                            redirect URI it gave Evolution or Thunderbird. Or copy them from Evolution on your work computer:
+                            Edit, Accounts, your work account, Edit, then under Receiving Email, Override Microsoft 365 (or
+                            Office365) OAuth2 settings: Tenant, Application ID and Redirect URI. An empty Redirect URI there
+                            means https://login.microsoftonline.com/common/oauth2/nativeclient.</li>
+                        <li><b>An app of your own</b>, when your organisation lets you consent to apps: register one in the
+                            Microsoft Entra admin center and use its Application (client) ID. Leave the box unticked.
+                            <a href=${README} target="_blank" rel="noopener">The README says how</a>.</li>
+                    </ul>
+                </details>
+                <div class="row"><button type="submit" class=${evo.length ? '' : 'primary'} ?disabled=${this._busy}>${this._busy ? spinner : ''}Next</button></div>
+            </form>`;
+    }
+
+    /** Evolution's app, as it is in Evolution's settings. */
+    async _useApp(a) {
+        if (await this._act('microsoft-app', { app: a.app, tenant: a.tenant, redirect: a.redirect })) this._go('ms-signin');
     }
 
     _msSignIn() {

@@ -1,7 +1,7 @@
 # A House Elves elf: what Elf Desk needs to install, set up and run calendar. AGENTS.md says what each field means.
 name: calendar
 title: Calendar
-version: 0.8.1
+version: 0.9.0
 author: "@phillip-kruger"
 description: Puts all your calendars, Gmail, Google Workspace, Office 365, iCloud, any other with an iCal address or .ics file, or the ones Evolution, Thunderbird or Apple Calendar already keep on this machine, together in one day, week or month view, with every event's details and a link to join each meeting.
 main: Calendar.java
@@ -12,7 +12,7 @@ tools: []
 # complete. Name every place outside this machine it reaches, and say when it waits for your click.
 reads:
   - "Your calendars, through the private iCal addresses you add in its Settings, from the server each address names: Google Calendar (calendar.google.com) for Gmail and Google Workspace, Outlook (outlook.office365.com) for Office 365, iCloud, or any other. And the .ics files on this machine you add there instead, for a calendar that has no such address. It reads nothing else."
-  - "The calendars Evolution (and GNOME Calendar), Thunderbird or Apple Calendar keep on this machine, if you pick one in its Settings: it reads a copy of their files and never changes them. When you add one from On this machine there, it also lists the names of the .ics files in your Documents, Downloads and Desktop folders, so you can pick one."
+  - "The calendars Evolution (and GNOME Calendar), Thunderbird or Apple Calendar keep on this machine, if you pick one in its Settings: it reads a copy of their files and never changes them. When you add one from On this machine there, it also lists the names of the .ics files in your Documents, Downloads and Desktop folders, so you can pick one. When you sign in to Microsoft there, it looks in Evolution's account settings for the app your organisation has Evolution sign in with, so you can use it too."
   - "Your Outlook calendar through Microsoft Graph (graph.microsoft.com), if you sign in to Microsoft in its Settings (at login.microsoftonline.com), as Thunderbird and Evolution do. It asks only to read your calendars and who you are, so it can't change or send anything. With an organisation's app that has a return address (as Evolution signs in), Microsoft's pass is the one that app is allowed, which could also change calendars; Calendar still only reads them."
 writes:
   - Nothing outside this machine. It saves the events it read in its own folder, so its tab can show them, and the calendars you add or remove in its config file. A Microsoft sign-in is kept in its own folder too, readable only by you, and goes when you remove its calendar.
@@ -34,24 +34,6 @@ settings:
     help: Leave out meetings you've declined, where the calendar says so.
     kind: bool
     default: "true"
-  - key: MICROSOFT_APP_ID
-    label: Microsoft app ID
-    help: Add calendar, Microsoft, Sign in asks for this and sets it here. The Application (client) ID of an app registered in Microsoft Entra that may read calendars; Calendar's README says how to get one.
-    kind: text
-    default: ""
-    optional: true
-  - key: MICROSOFT_TENANT
-    label: Microsoft organisation
-    help: Only for an app your organisation registered for itself alone. Its Directory (tenant) ID, or its domain. Leave it empty for any account.
-    kind: text
-    default: ""
-    optional: true
-  - key: MICROSOFT_REDIRECT
-    label: Microsoft return address
-    help: Only for an app that won't take a sign-in code, like an organisation's app for Evolution. Its redirect URI, e.g. https://login.microsoftonline.com/common/oauth2/nativeclient. Sign in to Microsoft then gives a link, and you paste the address you land on.
-    kind: text
-    default: ""
-    optional: true
   - key: CAL1_ICS_SECRET
     label: Calendar 1 from the first version (not needed)
     help: Leave this. Add your calendars at the top, under Your calendars, one at a time, as many as you like. Only Calendar's first version used this; if it's set, it's already in your list.
@@ -116,6 +98,10 @@ actions:
       app: {max: 36, pattern: "[0-9a-fA-F-]{36}"}
       tenant: {max: 100, pattern: "[A-Za-z0-9.-]{0,100}"}
       redirect: {max: 400, pattern: "(https?://[\\x21-\\x7E]{3,390})?"}
+  microsoft-evolution:
+    label: Find the Microsoft app Evolution uses
+    args: [--action=microsoft-evolution]
+    ask: false
   microsoft-check:
     label: Finish signing in to Microsoft
     args: [--action=microsoft-check]

@@ -79,22 +79,22 @@ public class Microsoft {
         return id;
     }
 
-    /** The organisation Microsoft signs in at: Microsoft organisation in Settings, else any (common). */
+    /** The organisation Microsoft signs in at: the app's organisation, set by Add calendar, else any (common). */
     static String tenant() throws IOException {
         String t = Config.raw().getOrDefault("MICROSOFT_TENANT", "").strip();
         if (t.isEmpty()) return "common";
         if (!TENANT.matcher(t).matches()) {
-            throw new IllegalArgumentException("Microsoft organisation in Settings should be its Directory (tenant) ID or its domain, like contoso.com.");
+            throw new IllegalArgumentException("The app's organisation should be its Directory (tenant) ID or its domain, like contoso.com. Change it with Add calendar, Microsoft, Sign in, Change app.");
         }
         return t;
     }
 
-    /** Microsoft return address in Settings, for an app that won't take a code; null without one. */
+    /** The app's return address, set by Add calendar, for an app that won't take a code; null without one. */
     static String redirect() throws IOException {
         String r = Config.raw().getOrDefault("MICROSOFT_REDIRECT", "").strip();
         if (r.isEmpty()) return null;
         if (!REDIRECT.matcher(r).matches()) {
-            throw new IllegalArgumentException("Microsoft return address in Settings should be the app's redirect URI, like https://login.microsoftonline.com/common/oauth2/nativeclient.");
+            throw new IllegalArgumentException("The app's return address should be its redirect URI, like https://login.microsoftonline.com/common/oauth2/nativeclient. Change it with Add calendar, Microsoft, Sign in, Change app.");
         }
         return r;
     }
@@ -440,15 +440,15 @@ public class Microsoft {
     static String error(JsonNode r) {
         String d = r.path("error_description").asText(r.path("error").asText("no answer"));
         if (d.contains("AADSTS65001") || d.contains("AADSTS90094") || d.contains("AADSTS90095") || d.contains("AADSTS50105")) {
-            return "your organisation has to allow Calendar's app first. Ask your admin to approve the Microsoft app ID in Calendar's settings"
+            return "your organisation has to allow Calendar's app first. Ask your admin to approve the app ID you gave Calendar"
                     + " for reading calendars, as they did for Thunderbird or Evolution.";
         }
         if (d.contains("AADSTS53003") || d.contains("AADSTS50199")) return "your organisation's sign-in rules block it on this machine. Ask your admin.";
         if (d.contains("AADSTS7000218")) {
-            return "that app won't take a sign-in code. Turn on Allow public client flows in its Authentication settings, or set its redirect URI as Microsoft return address in Settings.";
+            return "that app won't take a sign-in code. Turn on Allow public client flows in its Authentication settings, or give its redirect URI as the return address: Add calendar, Microsoft, Sign in, Change app.";
         }
-        if (d.contains("AADSTS50011")) return "the app doesn't know that return address. Check Microsoft return address in Settings.";
-        if (d.contains("AADSTS700016") || d.contains("AADSTS700038")) return "Microsoft doesn't know that app ID. Check Microsoft app ID in Settings.";
+        if (d.contains("AADSTS50011")) return "the app doesn't know that return address. Check the return address: Add calendar, Microsoft, Sign in, Change app.";
+        if (d.contains("AADSTS700016") || d.contains("AADSTS700038")) return "Microsoft doesn't know that app ID. Check the app ID: Add calendar, Microsoft, Sign in, Change app.";
         // Microsoft's own words, first line only, with its trace numbers left out.
         d = d.lines().findFirst().orElse(d).replaceAll("Trace ID:.*|Correlation ID:.*|Timestamp:.*", "").strip();
         return Calendar.clip(d, 300);

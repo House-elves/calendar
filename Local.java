@@ -138,6 +138,37 @@ public class Local {
         return found;
     }
 
+    /** An app an Evolution account signs in to Microsoft with, and the account. */
+    record EvoApp(String app, String tenant, String redirect, String account) {
+    }
+
+    /**
+     * The organisation's own app each Evolution account on this machine signs in to Microsoft with: one its account
+     * settings override Microsoft's sign-in with (OverrideOauth2), as an organisation that allows only its own app has
+     * you set up. Its return address is Microsoft's nativeclient page when Evolution leaves it empty, as Evolution does.
+     */
+    static List<EvoApp> evolutionMicrosoftApps() {
+        Map<String, EvoApp> found = new LinkedHashMap<>();
+        for (EvoRoot root : evoRoots()) {
+            Path sources = root.config().resolve("sources");
+            if (!Files.isDirectory(sources)) continue;
+            try (Stream<Path> files = Files.list(sources)) {
+                files.filter(f -> f.getFileName().toString().endsWith(".source")).map(Local::keyFile).forEach(keys -> {
+                    if (!"true".equals(keys.get("OverrideOauth2"))) return;
+                    String app = keys.getOrDefault("Oauth2ClientId", ""), tenant = keys.getOrDefault("Oauth2Tenant", "");
+                    String redirect = keys.getOrDefault("Oauth2RedirectUri", "");
+                    if (redirect.isEmpty()) redirect = "https://login.microsoftonline.com/common/oauth2/nativeclient";
+                    if (!Microsoft.APP_ID.matcher(app).matches() || !(tenant.isEmpty() || Microsoft.TENANT.matcher(tenant).matches())
+                            || !Microsoft.REDIRECT.matcher(redirect).matches()) return;
+                    String account = keys.getOrDefault("DisplayName", "");
+                    found.putIfAbsent(app + " " + tenant + " " + redirect, new EvoApp(app, tenant, redirect, Calendar.clip(account, 100)));
+                });
+            } catch (IOException ignored) {
+            }
+        }
+        return List.copyOf(found.values());
+    }
+
     static Path evoFile(EvoRoot root, String id) {
         for (Path p : List.of(root.cache().resolve("calendar").resolve(id).resolve("cache.db"),
                 root.data().resolve("calendar").resolve(id).resolve("calendar.ics"))) {
