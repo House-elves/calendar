@@ -8,6 +8,7 @@
 //SOURCES Config.java
 //SOURCES Ics.java
 //SOURCES Microsoft.java
+//SOURCES Google.java
 //SOURCES Local.java
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -43,6 +44,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.regex.Matcher;
@@ -56,7 +58,7 @@ import java.util.regex.Pattern;
  * With --action it answers its Settings list: the calendars, adding one, signing in to Microsoft, removing one. It only reads: it never
  * changes a calendar, and sends nothing anywhere.
  */
-@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.10.0", description = "Reads your calendars for Elf Desk")
+@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.11.0", description = "Reads your calendars for Elf Desk")
 public class Calendar implements Callable<Integer> {
 
     static final ObjectMapper JSON = new ObjectMapper();
@@ -70,8 +72,12 @@ public class Calendar implements Callable<Integer> {
     @Option(names = "--action", description = "For its Settings list: calendars, add or remove, with the values as JSON on stdin")
     String action;
 
+    @Option(names = "--google-listen", hidden = true, description = "Waits for your browser to come back from Google's sign-in")
+    boolean googleListen;
+
     @Override
     public Integer call() throws Exception {
+        if (googleListen) return Google.listen(http());
         if (action != null) return action();
         Config config;
         try {
@@ -108,6 +114,8 @@ public class Calendar implements Callable<Integer> {
             try {
                 ArrayNode events = Config.isMicrosoft(cal.address())
                         ? Microsoft.events(http, cal.address().getSchemeSpecificPart(), cal.slot(), from, to, config.hideDeclined, save)
+                        : Config.isGoogle(cal.address())
+                        ? Google.events(http, cal.address().getSchemeSpecificPart(), cal.slot(), from, to, config.hideDeclined)
                         : Config.isLocal(cal.address())
                         ? events(new Ics(Local.ics(cal.address().toString())), cal.slot(), from, to, config.hideDeclined)
                         : events(new Ics(read(http, cal.address())), cal.slot(), from, to, config.hideDeclined);
@@ -180,6 +188,9 @@ public class Calendar implements Callable<Integer> {
                         apps.addObject().put("app", a.app()).put("tenant", a.tenant()).put("redirect", a.redirect()).put("account", a.account());
                     }
                 }
+                case "google-app" -> Google.setApp(in.path("app").asText(""), in.path("secret").asText(""));
+                case "google-sign-in" -> out.setAll(Google.start(in.path("name").asText("")));
+                case "google-check" -> out.setAll(Google.check());
                 case "microsoft-check" -> out.setAll(Microsoft.check(http()));
                 case "microsoft-finish" -> out.setAll(Microsoft.finish(http(), in.path("address").asText("")));
                 case "local" -> {
@@ -206,6 +217,7 @@ public class Calendar implements Callable<Integer> {
                     Config.remove(slot);
                     // A Microsoft sign-in goes with its calendar: nothing else uses it.
                     if (was != null && Config.isMicrosoft(was)) Microsoft.forget(was.getSchemeSpecificPart());
+                    if (was != null && Config.isGoogle(was)) Google.forget(was.getSchemeSpecificPart());
                     // Its events go now, not at the next refresh.
                     Files.deleteIfExists(EVENTS.resolve("cal-" + slot + ".json"));
                     out.put("removed", slot);
@@ -215,7 +227,8 @@ public class Calendar implements Callable<Integer> {
         } catch (IllegalArgumentException e) {
             out.put("error", e.getMessage());
         } catch (IOException e) {
-            out.put("error", "Couldn't reach Microsoft. Are you online?");
+            out.put("error", action.startsWith("google") ? "Couldn't sign in to Google: " + Objects.requireNonNullElse(e.getMessage(), "are you online?")
+                    : "Couldn't reach Microsoft. Are you online?");
         } catch (InterruptedException e) {
             out.put("error", "Stopped before it was done.");
         }
@@ -228,11 +241,12 @@ public class Calendar implements Callable<Integer> {
             // One with a bad address is listed too, so it can be removed.
             list.addObject().put("slot", i).put("name", Config.name(raw, i))
                     .put("where", address == null ? "Not an iCal address" : Config.where(address)
-                            + (address != null && Config.isMicrosoft(address) ? " as " + address.getSchemeSpecificPart() : ""));
+                            + (address != null && (Config.isMicrosoft(address) || Config.isGoogle(address)) ? " as " + address.getSchemeSpecificPart() : ""));
         }
         out.put("max", Config.MAX);
         // The app Sign in to Microsoft uses, so Add calendar asks for it only when it isn't set.
         out.set("microsoft", Microsoft.app());
+        out.set("google", Google.app());
         System.out.println(JSON.writeValueAsString(out));
         return 0;
     }

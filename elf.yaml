@@ -1,7 +1,7 @@
 # A House Elves elf: what Elf Desk needs to install, set up and run calendar. AGENTS.md says what each field means.
 name: calendar
 title: Calendar
-version: 0.10.0
+version: 0.11.0
 author: "@phillip-kruger"
 description: Puts all your calendars, Gmail, Google Workspace, Office 365, iCloud, any other with an iCal address or .ics file, or the ones Evolution, Thunderbird or Apple Calendar already keep on this machine, together in one day, week or month view, with every event's details and a link to join each meeting.
 main: Calendar.java
@@ -13,12 +13,13 @@ tools: []
 reads:
   - "Your calendars, through the private iCal addresses you add in its Settings, from the server each address names: Google Calendar (calendar.google.com) for Gmail and Google Workspace, Outlook (outlook.office365.com) for Office 365, iCloud, or any other. And the .ics files on this machine you add there instead, for a calendar that has no such address. It reads nothing else."
   - "The calendars Evolution (and GNOME Calendar), Thunderbird or Apple Calendar keep on this machine, if you pick one in its Settings: it reads a copy of their files and never changes them. When you add one from On this machine there, it also lists the names of the .ics files in your Documents, Downloads and Desktop folders, so you can pick one. When you sign in to Microsoft there, it looks in Evolution's account settings for the app your organisation has Evolution sign in with, so you can use it too."
+  - "Your Google calendar through Google's Calendar API (www.googleapis.com), if you sign in to Google in its Settings (at accounts.google.com, which sends your browser back to Calendar on this machine, at 127.0.0.1, for up to 5 minutes), as Thunderbird does. It asks only to read your events and who you are, so it can't change or send anything."
   - "Your Outlook calendar through Microsoft Graph (graph.microsoft.com), if you sign in to Microsoft in its Settings (at login.microsoftonline.com), as Thunderbird and Evolution do. It asks only to read your calendars and who you are, so it can't change or send anything. With an organisation's app that has a return address (as Evolution signs in), Microsoft's pass is the one that app is allowed, which could also change calendars; Calendar still only reads them."
 writes:
-  - Nothing outside this machine. It saves the events it read in its own folder, so its tab can show them, and the calendars you add or remove in its config file. A Microsoft sign-in is kept in its own folder too, readable only by you, and goes when you remove its calendar.
+  - Nothing outside this machine. It saves the events it read in its own folder, so its tab can show them, and the calendars you add or remove in its config file. A Microsoft or Google sign-in is kept in its own folder too, readable only by you, and goes when you remove its calendar.
 
 # Your calendars are a list in its Settings pop-up (ui/calendar.js), as many as you like: the add-calendar and
-# remove-calendar actions write them to its config, and the Microsoft app with them. Only these two are the desk's.
+# remove-calendar actions write them to its config, and the Microsoft app and Google client with them. Only these two are the desk's.
 settings:
   - key: WEEKS_AHEAD
     label: Weeks ahead
@@ -66,6 +67,24 @@ actions:
     params:
       name: {max: 40, pattern: "[\\p{L}\\p{N} ._'&()+-]{1,40}"}
       address: {max: 500, pattern: "(?i)((https|webcal)://[\\x21-\\x7e]{3,490}|(~/|/|file:/)\\P{Cntrl}{0,490}\\.ics)"}
+  google-app:
+    label: Set the Google client
+    args: [--action=google-app]
+    ask: false
+    params:
+      # A Desktop app's client ID and secret from Google Cloud, checked again by the script. No secret keeps the one set.
+      app: {max: 120, pattern: "[0-9a-z.-]{10,120}"}
+      secret: {max: 100, pattern: "[\\x21-\\x7E]{0,100}"}
+  google-sign-in:
+    label: Sign in to Google
+    confirm: Sign in to Google so Calendar can read your Google calendar? It only reads it.
+    args: [--action=google-sign-in]
+    params:
+      name: {max: 40, pattern: "[\\p{L}\\p{N} ._'&()+-]{1,40}"}
+  google-check:
+    label: Finish signing in to Google
+    args: [--action=google-check]
+    ask: false
   microsoft-sign-in:
     label: Sign in to Microsoft
     confirm: Sign in to Microsoft so Calendar can read your Outlook calendar? It only reads it.

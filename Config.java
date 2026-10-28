@@ -88,6 +88,10 @@ public class Config {
             String account = address.substring(10).toLowerCase(Locale.ROOT);
             return Microsoft.ACCOUNT.matcher(account).matches() ? URI.create("microsoft:" + account) : null;
         }
+        if (address.regionMatches(true, 0, "google:", 0, 7)) {
+            String account = address.substring(7).toLowerCase(Locale.ROOT);
+            return Microsoft.ACCOUNT.matcher(account).matches() ? URI.create("google:" + account) : null;
+        }
         int colon = address.indexOf(':');
         if (colon > 0 && Local.is(address.substring(0, colon))) {
             String rest = address.substring(colon + 1);
@@ -123,6 +127,11 @@ public class Config {
         return "microsoft".equalsIgnoreCase(address.getScheme());
     }
 
+    /** A calendar read through a Google sign-in, not an address: its "address" only names the account. */
+    static boolean isGoogle(URI address) {
+        return "google".equalsIgnoreCase(address.getScheme());
+    }
+
     /** A calendar another app on this machine keeps a copy of: Evolution, Thunderbird or Apple Calendar (see Local). */
     static boolean isLocal(URI address) {
         return Local.is(address.getScheme());
@@ -136,6 +145,7 @@ public class Config {
     static String where(URI address) {
         if (isFile(address)) return "File on this machine";
         if (isMicrosoft(address)) return "Outlook, signed in";
+        if (isGoogle(address)) return "Google Calendar, signed in";
         if (isLocal(address)) return Local.app(address.getScheme()) + "'s copy on this machine";
         String host = address.getHost().toLowerCase(Locale.ROOT);
         if (host.equals("calendar.google.com")) return "Google Calendar";
@@ -156,6 +166,7 @@ public class Config {
                     + " a file is its whole path, like ~/Documents/work.ics.");
         }
         if (isMicrosoft(uri)) throw new IllegalArgumentException("Use Sign in to Microsoft for that.");
+        if (isGoogle(uri)) throw new IllegalArgumentException("Use Sign in to Google for that.");
         if (isLocal(uri)) throw new IllegalArgumentException("Pick it under On this machine, Find calendars, instead.");
         if (isFile(uri) && !Files.isRegularFile(Path.of(uri))) throw new IllegalArgumentException("There's no file at " + address.strip() + ".");
         return addAt(name, uri);
@@ -164,6 +175,16 @@ public class Config {
     /** Adds the calendar of a Microsoft account you just signed in to. Signing in again to the same one keeps its slot. */
     static int addMicrosoft(String name, String account) throws IOException {
         URI uri = URI.create("microsoft:" + account);
+        Map<String, String> raw = raw();
+        for (int i = 1; i <= MAX; i++) {
+            if (uri.equals(address(raw.getOrDefault("CAL" + i + "_ICS_SECRET", "")))) return i;
+        }
+        return addAt(name.strip(), uri);
+    }
+
+    /** Adds the calendar of a Google account you just signed in to. Signing in again to the same one keeps its slot. */
+    static int addGoogle(String name, String account) throws IOException {
+        URI uri = URI.create("google:" + account);
         Map<String, String> raw = raw();
         for (int i = 1; i <= MAX; i++) {
             if (uri.equals(address(raw.getOrDefault("CAL" + i + "_ICS_SECRET", "")))) return i;

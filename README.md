@@ -37,7 +37,7 @@ even offline. If one calendar can't be read, it keeps showing what it read last 
      the ones you want and click **Add calendar**.
    - **Online:** give it a short name and what that one needs:
      - **Google** (Gmail, Google Workspace): its *Secret address in iCal format*: Google Calendar's Settings, your
-       calendar, *Integrate calendar*. If a work account has no such field, your admin has turned it off.
+       calendar, *Integrate calendar*. If a work account has no such field, your admin has turned it off: **Sign in** instead (see *Signing in to Google* below).
      - **Microsoft** (Office 365, Outlook.com): **Sign in** (see *Signing in to Microsoft* below), or a **Published link**:
        not the calendar's own *Sharing and permissions*, which only invites people by email. Click the gear at the top
        right of Outlook for *Settings*, then *Calendar*, *Shared calendars*. Under *Publish a calendar*, pick the
@@ -66,6 +66,31 @@ it now and then).
   Security*. Newer versions of macOS keep their calendars in a database instead, which this doesn't read yet.
 
 If it finds none, none of these apps has a calendar here and there's no `.ics` file in those folders.
+
+### Signing in to Google
+
+A Google Workspace account (a work Gmail) whose admin turned off the *Secret address in iCal format* can still be read
+the way Thunderbird reads it: **Add calendar**, **Google**, **Sign in**. Give the calendar a name and click **Sign in to
+Google**. Google's page opens in your browser, you pick your work account and allow Calendar to see your events, and
+Google sends your browser back to Calendar on this machine (it listens on 127.0.0.1 for 5 minutes). Your password goes
+only to Google. Calendar asks only to read your events (`calendar.events.readonly`) and who you are, so it can't change
+or send anything, and it stays signed in until you remove the calendar or your organisation takes it back. It reads
+your main calendar.
+
+Google only lets a client it knows sign in, so the first time it asks for a **client ID** and **client secret**, and
+keeps them for the next Google calendar (`GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in its config). To make one, in
+[Google Cloud](https://console.cloud.google.com), with any Google account:
+
+1. Make a project, any name.
+2. *APIs & Services*, *Library*: find **Google Calendar API** and click *Enable*.
+3. *APIs & Services*, *OAuth consent screen*: *External*, an app name and your email. Under *Test users*, add the work
+   address you'll sign in with, so you can sign in without Google reviewing the app.
+4. *APIs & Services*, *Credentials*: *Create credentials*, *OAuth client ID*, *Desktop app*. Copy its *Client ID* and
+   *Client secret* into Calendar.
+
+A Desktop app's secret isn't really secret (Google says so for apps installed on your machine), but Calendar keeps it
+in its config file, owner-only, all the same. Your work account's admin may block clients it hasn't allowed: then
+Google says *Access blocked*, and only IT can allow its client ID.
 
 ### Signing in to Microsoft
 

@@ -3,6 +3,13 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.11.0
+
+- New: **Sign in to Google**, for a Google Workspace calendar whose admin turned off the secret iCal address. Add
+  calendar, Google, Sign in: it opens Google's page and reads your calendar through Google's Calendar API, only reading.
+  It needs a Google client of yours the first time; Calendar says where to make one.
+- Events read well in the dark theme: the week and day views no longer show them pale on dark.
+
 ## 0.10.0
 
 - An event's details open in a pop-up next to it, not at the top of the page. Esc or a click outside closes it.

@@ -85,7 +85,7 @@ class CalendarTab extends LitElement {
         .tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
         .tools h2 { margin: 0 8px; font-size: 20px; font-weight: 600; }
         .seg { display: inline-flex; gap: 4px; }
-        .seg button[aria-pressed="true"] { background: var(--accent); color: white; border-color: var(--accent); }
+        .seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
         .cals { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; }
         .cals label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
         .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
@@ -113,7 +113,7 @@ class CalendarTab extends LitElement {
             display: grid; gap: 3px; align-content: start; }
         .cell.other { background: var(--wash, rgba(0, 0, 0, 0.02)); }
         .cell .n { font-size: 12px; color: var(--muted); background: none; border: 0; padding: 2px 4px; justify-self: start; cursor: pointer; }
-        .cell .n.today { color: white; background: var(--accent); border-radius: 10px; }
+        .cell .n.today { color: var(--accent-ink); background: var(--accent); border-radius: 10px; }
         .more { font-size: 12px; color: var(--muted); background: none; border: 0; padding: 0 4px; cursor: pointer; text-align: left; }
         dialog.detail { position: fixed; margin: 0; padding: 20px 24px; width: min(40rem, calc(100vw - 16px));
             max-height: min(80vh, 40rem); overflow-y: auto; box-sizing: border-box; color: inherit;
@@ -254,7 +254,7 @@ class CalendarTab extends LitElement {
                             return html`<button class="ev ${e.declined ? 'declined' : ''} ${e.tentative ? 'tentative' : ''}"
                                 style="top:${(start - d) / 3600000 * 48}px;height:${Math.max(18, (end - start) / 3600000 * 48 - 2)}px;
                                     left:${col / n * 100}%;width:calc(${100 / n}% - 3px);border-left-color:${c};
-                                    background:color-mix(in srgb, ${c} 16%, var(--panel, white))"
+                                    background:color-mix(in srgb, ${c} 18%, var(--surface))"
                                 title=${e.title} @click=${ev => this._show(e, ev)}>
                                 <strong>${e.title}</strong><br><small>${time(startOf(e))}–${time(endOf(e))}</small></button>`;
                         })}</div>`)}
@@ -491,8 +491,7 @@ const PROVIDERS = {
         label: 'Google', sub: 'Gmail or Google Workspace',
         field: 'Secret address in iCal format', placeholder: 'https://calendar.google.com/calendar/ical/…/basic.ics',
         help: html`Open Google Calendar's Settings, pick your calendar, then Integrate calendar, and copy Secret address in
-            iCal format. If a work account has no such field, your admin has turned it off: try On this machine if
-            Evolution or Thunderbird already shows it.`,
+            iCal format. If a work account has no such field, your admin has turned it off: go Back and Sign in instead.`,
     },
     microsoft: {
         label: 'Microsoft', sub: 'Outlook, Office 365 or Outlook.com',
@@ -519,6 +518,7 @@ const PROVIDERS = {
 
 /** Where Calendar's README says how to get a Microsoft app ID. */
 const README = 'https://github.com/House-elves/calendar#signing-in-to-microsoft';
+const README_GOOGLE = 'https://github.com/House-elves/calendar#signing-in-to-google';
 
 /**
  * Your calendars, at the top of its Settings pop-up, and Add calendar: a few steps that ask where it lives, then only
@@ -529,7 +529,7 @@ class CalendarSettings extends LitElement {
 
     static properties = { _list: { state: true }, _max: { state: true }, _error: { state: true }, _busy: { state: true },
         _signin: { state: true }, _found: { state: true }, _step: { state: true }, _provider: { state: true },
-        _picked: { state: true }, _ms: { state: true }, _org: { state: true }, _said: { state: true }, _evo: { state: true } };
+        _picked: { state: true }, _ms: { state: true }, _org: { state: true }, _said: { state: true }, _evo: { state: true }, _g: { state: true } };
 
     static styles = [shared, css`
         :host { display: grid; gap: 14px; }
@@ -563,6 +563,7 @@ class CalendarSettings extends LitElement {
         summary { cursor: pointer; color: var(--accent); }
         .where-from { display: grid; gap: 8px; margin: 8px 0 0; padding-left: 18px; list-style: disc; max-width: 44rem; }
         .where-from li { display: list-item; font-size: 13px; }
+        ol.where-from { list-style: decimal; }
         @media (max-width: 560px) { .fields { grid-template-columns: 1fr; } }
     `];
 
@@ -587,6 +588,7 @@ class CalendarSettings extends LitElement {
             if (Array.isArray(a?.calendars)) this._list = a.calendars;
             if (a?.max) this._max = a.max;
             if (a?.microsoft) this._ms = a.microsoft;
+            if (a?.google) this._g = a.google;
             this._answer = a;
             if (a?.error) {
                 this._error = a.error;
@@ -618,13 +620,13 @@ class CalendarSettings extends LitElement {
     _back() {
         const s = this._step;
         this._go(s === 'provider' ? null : s === 'ms-app' || s === 'ms-signin' || (s === 'link' && this._provider === 'microsoft')
-            ? 'ms-how' : 'provider');
+            ? 'ms-how' : s === 'g-app' || s === 'g-signin' || (s === 'link' && this._provider === 'google') ? 'g-how' : 'provider');
     }
 
     _pickProvider(k) {
         this._provider = k;
         this._found = null;
-        this._go(k === 'microsoft' ? 'ms-how' : k === 'local' ? 'local' : 'link');
+        this._go(k === 'microsoft' ? 'ms-how' : k === 'google' ? 'g-how' : k === 'local' ? 'local' : 'link');
         if (k === 'local') this._findLocal();
     }
 
@@ -860,15 +862,118 @@ class CalendarSettings extends LitElement {
                     ? `${picked} calendars` : 'calendar'}</button></div>`}`;
     }
 
+    _gHow() {
+        return html`<div class="choices">
+            <button @click=${() => this._go(this._g?.app && this._g?.secret ? 'g-signin' : 'g-app')}><b>Sign in</b>
+                <span>Reads it the way Thunderbird does. For a work account (Google Workspace) with no secret address.</span></button>
+            <button @click=${() => this._go('link')}><b>Secret address</b>
+                <span>The secret address in iCal format from Google Calendar's settings, if your account has one.</span></button>
+        </div>`;
+    }
+
+    _gApp() {
+        const g = this._g ?? {};
+        return html`<form @submit=${this._setGoogleApp}>
+            <p class="help">Google only lets a client it knows read a calendar, so Calendar signs in as one of yours: a
+                Desktop app's client ID and secret from Google Cloud. Calendar keeps them for your next Google calendar too.</p>
+            <div class="fields">
+                <label>Client ID<input name="app" type="text" maxlength="120" autocomplete="off" spellcheck="false" .value=${g.app ?? ''}
+                    placeholder="1234-abc….apps.googleusercontent.com"></label>
+                <label>Client secret<input name="secret" type="password" maxlength="100" autocomplete="off"
+                    placeholder=${g.secret ? 'Set: leave empty to keep it' : 'GOCSPX-…'}></label>
+            </div>
+            <details>
+                <summary>Where do I find these?</summary>
+                <ol class="where-from">
+                    <li>At <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">Google Cloud</a>,
+                        make a project (any name), signed in with any Google account.</li>
+                    <li>Under APIs &amp; Services, Library, find Google Calendar API and click Enable.</li>
+                    <li>Under APIs &amp; Services, OAuth consent screen: External, your app's name and your email. Add your
+                        work address under Test users, so you can sign in before Google reviews the app.</li>
+                    <li>Under APIs &amp; Services, Credentials: Create credentials, OAuth client ID, Desktop app. Copy its
+                        Client ID and Client secret here.</li>
+                </ol>
+                <p class="help">Your work account's admin may still have to allow the client. If Google says access is
+                    blocked, ask IT to allow its client ID. <a href=${README_GOOGLE} target="_blank" rel="noopener">The README</a>
+                    has more.</p>
+            </details>
+            <div class="row"><button type="submit" class="primary" ?disabled=${this._busy}>${this._busy ? spinner : ''}Next</button></div>
+        </form>`;
+    }
+
+    async _setGoogleApp(ev) {
+        ev.preventDefault();
+        const f = ev.target;
+        const params = { app: f.app.value.trim(), secret: f.secret.value.trim() };
+        if (!params.app) {
+            this._error = 'Paste the client ID first.';
+            return;
+        }
+        if (await this._act('google-app', params)) this._go('g-signin');
+    }
+
+    _gSignIn() {
+        const s = this._signin, g = this._g ?? {};
+        if (s) return html`<div class="code" role="status">
+            <p><a href=${s.url} target="_blank" rel="noopener">Open Google's sign-in</a>, pick your work account and allow
+                Calendar to see your events. Google sends you back to Calendar on this machine.</p>
+            <p class="help">${spinner}Waiting for you to sign in, up to 5 minutes. Your calendar shows up in the list once you have.</p>
+        </div>`;
+        return html`<form @submit=${this._googleSignIn}>
+            <p class="help">Signs in as Google client <span class="app">${g.app}</span>.
+                <button type="button" class="sm quiet" @click=${() => this._go('g-app')}>Change client</button></p>
+            <label>Name<input name="name" type="text" maxlength="40" placeholder="Red Hat" autocomplete="off"></label>
+            <div class="row"><button type="submit" class="primary" ?disabled=${this._busy}>${this._busy ? spinner : ''}Sign in to Google</button></div>
+        </form>`;
+    }
+
+    /** Opens Google's page; Google sends the browser back to Calendar on this machine, so this only asks until then. */
+    async _googleSignIn(ev) {
+        ev.preventDefault();
+        const name = ev.target.name.value.trim();
+        if (!name) {
+            this._error = 'Give it a name first, like Red Hat.';
+            return;
+        }
+        clearTimeout(this._poll);
+        this._signin = null;
+        if (!(await this._act('google-sign-in', { name }))) return;
+        const a = this._answer;
+        // Only Google's own sign-in page, as the script made it.
+        if (!/^https:\/\/accounts\.google\.com\//.test(a?.url ?? '')) {
+            this._error = "That sign-in page isn't Google's, so it isn't shown.";
+            return;
+        }
+        this._signin = { url: a.url, name };
+        const wait = Math.max(3, Math.min(30, a?.interval ?? 3)) * 1000;
+        const check = async () => {
+            if (!this._signin) return;
+            const ok = await this._act('google-check', {});
+            if (!ok) {
+                this._signin = null;
+                return;
+            }
+            if (this._answer?.waiting) {
+                this._poll = setTimeout(check, wait);
+                return;
+            }
+            this._added(name);
+        };
+        this._poll = setTimeout(check, wait);
+    }
+
     _wizard() {
         const s = this._step, p = PROVIDERS[this._provider];
         const where = s === 'provider' ? '' : s === 'ms-app' ? 'Microsoft, the app it signs in as' : s === 'ms-signin' ? 'Microsoft, sign in'
-            : s === 'link' && this._provider === 'microsoft' ? 'Microsoft, published link' : this._provider === 'local' ? 'this machine' : p?.label;
+            : s === 'link' && this._provider === 'microsoft' ? 'Microsoft, published link'
+            : s === 'g-app' ? 'Google, your Google client' : s === 'g-signin' ? 'Google, sign in'
+            : s === 'link' && this._provider === 'google' ? 'Google, secret address' : this._provider === 'local' ? 'this machine' : p?.label;
         return html`<section class="wizard" aria-labelledby="add-h">
             <h3 id="add-h">${s === 'provider' ? 'Where is the calendar?' : html`Add a calendar <span>from ${where}</span>`}</h3>
             ${this._error ? html`<p class="error" role="alert">${this._error}</p>` : ''}
             ${s === 'provider' ? this._choices() : s === 'ms-how' ? this._msHow() : s === 'ms-app' ? this._msApp()
-                : s === 'ms-signin' ? this._msSignIn() : s === 'local' ? this._local() : this._link()}
+                : s === 'ms-signin' ? this._msSignIn() : s === 'g-how' ? this._gHow() : s === 'g-app' ? this._gApp()
+                : s === 'g-signin' ? this._gSignIn() : s === 'local' ? this._local() : this._link()}
             <div class="row">
                 ${s !== 'provider' ? html`<button class="sm quiet" @click=${this._back}>Back</button>` : ''}
                 <button class="sm quiet" @click=${() => this._go(null)}>Cancel</button>
