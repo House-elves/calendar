@@ -1,7 +1,7 @@
 # A House Elves elf: what Elf Desk needs to install, set up and run calendar. AGENTS.md says what each field means.
 name: calendar
 title: Calendar
-version: 0.9.0
+version: 0.9.1
 author: "@phillip-kruger"
 description: Puts all your calendars, Gmail, Google Workspace, Office 365, iCloud, any other with an iCal address or .ics file, or the ones Evolution, Thunderbird or Apple Calendar already keep on this machine, together in one day, week or month view, with every event's details and a link to join each meeting.
 main: Calendar.java
@@ -18,9 +18,7 @@ writes:
   - Nothing outside this machine. It saves the events it read in its own folder, so its tab can show them, and the calendars you add or remove in its config file. A Microsoft sign-in is kept in its own folder too, readable only by you, and goes when you remove its calendar.
 
 # Your calendars are a list in its Settings pop-up (ui/calendar.js), as many as you like: the add-calendar and
-# remove-calendar actions write them to its config. The three addresses at the end are from before that list; the desk
-# won't install a version that stops listing a secret, so they stay, last and marked not needed, and show up in the list
-# like any other.
+# remove-calendar actions write them to its config, and the Microsoft app with them. Only these two are the desk's.
 settings:
   - key: WEEKS_AHEAD
     label: Weeks ahead
@@ -34,21 +32,6 @@ settings:
     help: Leave out meetings you've declined, where the calendar says so.
     kind: bool
     default: "true"
-  - key: CAL1_ICS_SECRET
-    label: Calendar 1 from the first version (not needed)
-    help: Leave this. Add your calendars at the top, under Your calendars, one at a time, as many as you like. Only Calendar's first version used this; if it's set, it's already in your list.
-    kind: secret
-    optional: true
-  - key: CAL2_ICS_SECRET
-    label: Calendar 2 from the first version (not needed)
-    help: Leave this. Add your calendars at the top, under Your calendars, one at a time, as many as you like. Only Calendar's first version used this; if it's set, it's already in your list.
-    kind: secret
-    optional: true
-  - key: CAL3_ICS_SECRET
-    label: Calendar 3 from the first version (not needed)
-    help: Leave this. Add your calendars at the top, under Your calendars, one at a time, as many as you like. Only Calendar's first version used this; if it's set, it's already in your list.
-    kind: secret
-    optional: true
 
 commands:
   refresh:

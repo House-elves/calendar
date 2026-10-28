@@ -111,8 +111,7 @@ Anyone who has one of these addresses can read that calendar, so treat it like a
 
 Each calendar is a pair of lines in the config, `CAL<n>_NAME` and `CAL<n>_ICS_SECRET`, for `n` from 1 to 20. A
 calendar you signed in to Microsoft for has `microsoft:` and your account there instead of an address, and one from an
-app on this machine has `evolution:`, `thunderbird:` or `apple:` and where that app keeps it. The three
-*Calendar 1, 2 and 3 from the first version* rows at the bottom of its Settings are those first three addresses, from
-before the list: you don't need them, and one set there already shows in *Your calendars*.
+app on this machine has `evolution:`, `thunderbird:` or `apple:` and where that app keeps it.
+The Microsoft app is `MICROSOFT_APP_ID`, `MICROSOFT_TENANT` and `MICROSOFT_REDIRECT`, set by *Add calendar*.
 
 Check it with `jbang https://github.com/House-elves/elf-runner/blob/main/ElfRunner.java --check-elf .`

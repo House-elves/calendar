@@ -3,6 +3,11 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.9.1
+
+- Settings no longer lists Calendar 1, 2 and 3 from the first version. Your calendars stay as they are: add and
+  remove them at the top.
+
 ## 0.9.0
 
 - The Microsoft app is part of **Add calendar** only: Microsoft app ID, organisation and return address are gone from the
