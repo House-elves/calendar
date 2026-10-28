@@ -56,7 +56,7 @@ import java.util.regex.Pattern;
  * With --action it answers its Settings list: the calendars, adding one, signing in to Microsoft, removing one. It only reads: it never
  * changes a calendar, and sends nothing anywhere.
  */
-@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.7.0", description = "Reads your calendars for Elf Desk")
+@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.8.0", description = "Reads your calendars for Elf Desk")
 public class Calendar implements Callable<Integer> {
 
     static final ObjectMapper JSON = new ObjectMapper();
@@ -172,6 +172,7 @@ public class Calendar implements Callable<Integer> {
                 }
                 case "add" -> out.put("added", Config.add(in.path("name").asText(""), in.path("address").asText("")));
                 case "microsoft-sign-in" -> out.setAll(Microsoft.start(http(), in.path("name").asText("")));
+                case "microsoft-app" -> Microsoft.setApp(in.path("app").asText(""), in.path("tenant").asText(""), in.path("redirect").asText(""));
                 case "microsoft-check" -> out.setAll(Microsoft.check(http()));
                 case "microsoft-finish" -> out.setAll(Microsoft.finish(http(), in.path("address").asText("")));
                 case "local" -> {
@@ -223,6 +224,8 @@ public class Calendar implements Callable<Integer> {
                             + (address != null && Config.isMicrosoft(address) ? " as " + address.getSchemeSpecificPart() : ""));
         }
         out.put("max", Config.MAX);
+        // The app Sign in to Microsoft uses, so Add calendar asks for it only when it isn't set.
+        out.set("microsoft", Microsoft.app());
         System.out.println(JSON.writeValueAsString(out));
         return 0;
     }

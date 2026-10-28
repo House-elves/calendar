@@ -74,7 +74,7 @@ public class Microsoft {
     static String appId() throws IOException {
         String id = Config.raw().getOrDefault("MICROSOFT_APP_ID", "").strip();
         if (!APP_ID.matcher(id).matches()) {
-            throw new IllegalArgumentException("Signing in to Microsoft needs an app ID. Set Microsoft app ID in Calendar's settings: see its README for how to get one.");
+            throw new IllegalArgumentException("Signing in to Microsoft needs an app ID: Add calendar, Microsoft, Sign in asks for it, and Calendar's README says how to get one.");
         }
         return id;
     }
@@ -97,6 +97,36 @@ public class Microsoft {
             throw new IllegalArgumentException("Microsoft return address in Settings should be the app's redirect URI, like https://login.microsoftonline.com/common/oauth2/nativeclient.");
         }
         return r;
+    }
+
+    /** The app it signs in as, for Settings: {app, tenant, redirect}, each empty when not set. */
+    static ObjectNode app() throws IOException {
+        Map<String, String> raw = Config.raw();
+        ObjectNode out = Calendar.JSON.createObjectNode();
+        out.put("app", raw.getOrDefault("MICROSOFT_APP_ID", "").strip());
+        out.put("tenant", raw.getOrDefault("MICROSOFT_TENANT", "").strip());
+        out.put("redirect", raw.getOrDefault("MICROSOFT_REDIRECT", "").strip());
+        return out;
+    }
+
+    /**
+     * Sets the app it signs in as, from Add calendar: its ID, and for an organisation's own app, the organisation and
+     * return address (both empty for any account). The same settings as Microsoft app ID and the two after it.
+     */
+    static void setApp(String id, String tenant, String redirect) throws IOException {
+        id = id.strip();
+        tenant = tenant.strip();
+        redirect = redirect.strip();
+        if (!APP_ID.matcher(id).matches()) {
+            throw new IllegalArgumentException("The app ID is its Application (client) ID, like 1a2b3c4d-1a2b-1a2b-1a2b-1a2b3c4d5e6f.");
+        }
+        if (!tenant.isEmpty() && !TENANT.matcher(tenant).matches()) {
+            throw new IllegalArgumentException("The organisation is its Directory (tenant) ID or its domain, like contoso.com.");
+        }
+        if (!redirect.isEmpty() && !REDIRECT.matcher(redirect).matches()) {
+            throw new IllegalArgumentException("The return address is the app's redirect URI, like https://login.microsoftonline.com/common/oauth2/nativeclient.");
+        }
+        Config.set(Map.of("MICROSOFT_APP_ID", id, "MICROSOFT_TENANT", tenant, "MICROSOFT_REDIRECT", redirect));
     }
 
     static String login(String tenant) {

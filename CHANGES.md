@@ -3,6 +3,13 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.8.0
+
+- New: **Add calendar** in Settings walks you through it. Pick where the calendar is (Google, Microsoft, iCloud, On this
+  machine or Other), then it asks only for what that one needs, with its directions right there.
+- Signing in to Microsoft asks for the app it signs in as the first time, and for an organisation's own app, its
+  organisation and return address too, so you no longer have to find them further down Settings first.
+
 ## 0.7.0
 
 - Outlook at an organisation that only allows its own app, the way Evolution signs in: set **Microsoft organisation**

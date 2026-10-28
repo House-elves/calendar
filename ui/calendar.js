@@ -439,45 +439,52 @@ class CalendarCard extends LitElement {
     }
 }
 
-/** A small "?" that shows its directions on hover or focus, so Settings stays short. */
-const tip = text => html`<span class="tip" tabindex="0" aria-label="Help">?<span class="bubble" role="tooltip">${text}</span></span>`;
-
 /** Where an online calendar comes from, and what each one asks for: its address's label, placeholder and directions. */
+/** Where a calendar lives, the first thing Add calendar asks. Online ones say what their address is called there. */
 const PROVIDERS = {
     google: {
-        label: 'Google', field: 'Secret address in iCal format', placeholder: 'https://calendar.google.com/calendar/ical/…/basic.ics',
-        help: html`Gmail or Google Workspace: open Google Calendar's Settings, pick your calendar, then Integrate calendar,
-            and copy Secret address in iCal format. If a work account has no such field, your admin has turned it off.`,
+        label: 'Google', sub: 'Gmail or Google Workspace',
+        field: 'Secret address in iCal format', placeholder: 'https://calendar.google.com/calendar/ical/…/basic.ics',
+        help: html`Open Google Calendar's Settings, pick your calendar, then Integrate calendar, and copy Secret address in
+            iCal format. If a work account has no such field, your admin has turned it off: try On this machine if
+            Evolution or Thunderbird already shows it.`,
     },
     microsoft: {
-        label: 'Microsoft', field: 'ICS link', placeholder: 'https://outlook.office365.com/owa/calendar/…/calendar.ics',
-        help: html`Office 365 or Outlook.com: click the gear at the top right of Outlook, then Calendar, Shared calendars.
-            Under Publish a calendar pick the calendar and Can view all details, click Publish and copy the ICS link.
-            Not the calendar's own Sharing and permissions: that only invites people. No Publish a calendar there? Your
-            admin turned it off: use Sign in instead, or On this machine if Evolution, Thunderbird or Apple Calendar
-            already shows it.`,
+        label: 'Microsoft', sub: 'Outlook, Office 365 or Outlook.com',
+        field: 'ICS link', placeholder: 'https://outlook.office365.com/owa/calendar/…/calendar.ics',
+        help: html`Click the gear at the top right of Outlook, then Calendar, Shared calendars. Under Publish a calendar
+            pick the calendar and Can view all details, click Publish and copy the ICS link. Not the calendar's own Sharing
+            and permissions: that only invites people. No Publish a calendar there? Your admin turned it off: go Back and
+            Sign in instead.`,
     },
     icloud: {
-        label: 'iCloud', field: 'Public calendar link', placeholder: 'webcal://p…-caldav.icloud.com/published/…',
+        label: 'iCloud', sub: 'Apple Calendar online',
+        field: 'Public calendar link', placeholder: 'webcal://p…-caldav.icloud.com/published/…',
         help: html`In Apple Calendar or at icloud.com, share the calendar as a Public Calendar and copy its link.`,
     },
+    local: {
+        label: 'On this machine', sub: 'What Evolution, Thunderbird or Apple Calendar show, or an .ics file',
+    },
     other: {
-        label: 'Other', field: 'iCal address', placeholder: 'https://… or webcal://…',
-        help: html`Any calendar with an iCal (.ics) address works: look for "subscribe", "iCal" or "ICS" in its sharing settings.`,
+        label: 'Other', sub: 'Any calendar with an iCal address',
+        field: 'iCal address', placeholder: 'https://… or webcal://…',
+        help: html`Look for "subscribe", "iCal" or "ICS" in the calendar's sharing settings.`,
     },
 };
 
+/** Where Calendar's README says how to get a Microsoft app ID. */
+const README = 'https://github.com/House-elves/calendar#signing-in-to-microsoft';
+
 /**
- * Your calendars, at the top of its Settings pop-up: as many as you like. Add one from this machine (Find calendars
- * lists what Evolution, Thunderbird or Apple Calendar keep, and .ics files you saved; tick and add) or online (pick
- * where it lives, and it asks only for what that one needs). An address goes to the elf's config file and is never
- * shown again: the list says only where it lives.
+ * Your calendars, at the top of its Settings pop-up, and Add calendar: a few steps that ask where it lives, then only
+ * what that one needs. Microsoft's sign-in asks for the app it signs in as first, when that isn't set yet. An address
+ * goes to the elf's config file and is never shown again: the list says only where it lives.
  */
 class CalendarSettings extends LitElement {
 
     static properties = { _list: { state: true }, _max: { state: true }, _error: { state: true }, _busy: { state: true },
-        _signin: { state: true }, _found: { state: true }, _where: { state: true }, _provider: { state: true },
-        _msWay: { state: true }, _picked: { state: true } };
+        _signin: { state: true }, _found: { state: true }, _step: { state: true }, _provider: { state: true },
+        _picked: { state: true }, _ms: { state: true }, _org: { state: true }, _said: { state: true } };
 
     static styles = [shared, css`
         :host { display: grid; gap: 14px; }
@@ -488,24 +495,26 @@ class CalendarSettings extends LitElement {
         .where { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .spacer { flex: 1; }
         .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-        .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
-        .seg button[aria-pressed="true"] { background: var(--accent); color: white; border-color: var(--accent); }
-        form { display: grid; grid-template-columns: minmax(8rem, 1fr) minmax(12rem, 3fr) auto; gap: 8px; align-items: end; }
-        form.ms { grid-template-columns: minmax(8rem, 1fr) auto; }
+        .wizard { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line, var(--border)); border-radius: var(--r-control, 8px); }
+        .wizard h3 { margin: 0; font-size: 15px; font-weight: 600; }
+        .wizard h3 span { color: var(--muted); font-weight: normal; }
+        .choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: 8px; }
+        .choices button { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 2px;
+            text-align: left; padding: 10px 12px; height: auto; white-space: normal; }
+        .choices button b { font-weight: 600; }
+        .choices button span { font-size: 13px; color: var(--muted); font-weight: normal; }
+        form { display: grid; gap: 10px; }
+        .fields { display: grid; grid-template-columns: minmax(8rem, 1fr) minmax(12rem, 3fr); gap: 8px; align-items: end; }
         label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
-        .help { margin: 0; font-size: 13px; color: var(--muted); }
+        label.check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: inherit; cursor: pointer; }
+        .help { margin: 0; font-size: 13px; color: var(--muted); max-width: 44rem; }
         .empty { margin: 0; color: var(--muted); font-size: 14px; }
         input:not([type="checkbox"]) { width: 100%; box-sizing: border-box; }
         .code { display: grid; gap: 6px; font-size: 14px; }
         .code p { margin: 0; }
         .code b { font-family: var(--mono, monospace); font-size: 18px; letter-spacing: 0.08em; user-select: all; }
-        .tip { position: relative; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%;
-            border: 1px solid var(--border, currentColor); color: var(--muted); font-size: 12px; cursor: help; flex: none; }
-        .tip .bubble { display: none; position: absolute; z-index: 10; top: 24px; left: -8px; width: min(26rem, 70vw);
-            padding: 8px 10px; border-radius: 6px; background: var(--panel, var(--bg, #222)); color: var(--fg, inherit);
-            border: 1px solid var(--border, #555); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); font-size: 13px;
-            line-height: 1.45; cursor: auto; font-weight: normal; }
-        .tip:hover .bubble, .tip:focus .bubble, .tip:focus-within .bubble { display: block; }
+        .app { font-family: var(--mono, monospace); font-size: 13px; }
+        @media (max-width: 560px) { .fields { grid-template-columns: 1fr; } }
     `];
 
     disconnectedCallback() {
@@ -519,7 +528,7 @@ class CalendarSettings extends LitElement {
         this._act('calendars', {});
     }
 
-    /** Asks for one of its list's actions; the answer is always the list as it is now. */
+    /** Asks for one of its list's actions; the answer is always the list as it is now, and the Microsoft app. */
     async _act(action, params) {
         this._busy = true;
         this._error = null;
@@ -528,6 +537,7 @@ class CalendarSettings extends LitElement {
             const a = r?.result ?? r;
             if (Array.isArray(a?.calendars)) this._list = a.calendars;
             if (a?.max) this._max = a.max;
+            if (a?.microsoft) this._ms = a.microsoft;
             this._answer = a;
             if (a?.error) {
                 this._error = a.error;
@@ -542,6 +552,37 @@ class CalendarSettings extends LitElement {
         }
     }
 
+    /** Goes to a step of Add calendar; null closes it. */
+    _go(step) {
+        clearTimeout(this._poll);
+        this._signin = null;
+        this._error = null;
+        this._said = null;
+        this._step = step;
+        if (step === 'ms-app') this._org = null;
+    }
+
+    /** Where each step's Back goes. */
+    _back() {
+        const s = this._step;
+        this._go(s === 'provider' ? null : s === 'ms-app' || s === 'ms-signin' || (s === 'link' && this._provider === 'microsoft')
+            ? 'ms-how' : 'provider');
+    }
+
+    _pickProvider(k) {
+        this._provider = k;
+        this._found = null;
+        this._go(k === 'microsoft' ? 'ms-how' : k === 'local' ? 'local' : 'link');
+        if (k === 'local') this._findLocal();
+    }
+
+    /** Added: Add calendar closes, says so, and Calendar reads them all once. */
+    _added(what) {
+        this._go(null);
+        this._said = `Added ${what}. Reading your calendars now.`;
+        elf.run('refresh').catch(() => {});
+    }
+
     async _add(ev) {
         ev.preventDefault();
         const form = ev.target;
@@ -550,15 +591,30 @@ class CalendarSettings extends LitElement {
             this._error = `Give it a name and paste its ${PROVIDERS[this._provider].field}.`;
             return;
         }
-        if (await this._act('add-calendar', { name, address })) {
-            form.reset();
-            elf.run('refresh').catch(() => {});
+        if (await this._act('add-calendar', { name, address })) this._added(name);
+    }
+
+    /** The app it signs in to Microsoft as, kept in its settings for the next calendar too. */
+    async _setApp(ev) {
+        ev.preventDefault();
+        const f = ev.target;
+        const org = f.org.checked;
+        const params = { app: f.app.value.trim(), tenant: org ? f.tenant.value.trim() : '', redirect: org ? f.redirect.value.trim() : '' };
+        if (!params.app) {
+            this._error = 'Paste the app ID first.';
+            return;
         }
+        if (org && !params.tenant) {
+            this._error = "Give your organisation's Directory (tenant) ID or domain, or untick the box.";
+            return;
+        }
+        if (await this._act('microsoft-app', params)) this._go('ms-signin');
     }
 
     /**
      * Signs in to Microsoft the way Thunderbird and Evolution do: it shows a code to type at Microsoft's page in your
-     * browser, then asks every few seconds whether you have, until the calendar is in the list.
+     * browser, then asks every few seconds whether you have, until the calendar is in the list. An app with a return
+     * address has you paste where its page lands instead.
      */
     async _signIn(ev) {
         ev.preventDefault();
@@ -573,8 +629,7 @@ class CalendarSettings extends LitElement {
         const a = this._answer;
         // Only Microsoft's own sign-in page, as the script checked it.
         const url = /^https:\/\/((www\.)?microsoft\.com|login\.microsoftonline\.com)\//.test(a?.url ?? '') ? a.url : 'https://microsoft.com/devicelogin';
-        this._signin = { code: a?.code, url, paste: !!a?.paste };
-        ev.target.reset();
+        this._signin = { code: a?.code, url, paste: !!a?.paste, name };
         if (a?.paste) return;
         const wait = Math.max(3, Math.min(30, a?.interval ?? 5)) * 1000;
         const check = async () => {
@@ -588,8 +643,7 @@ class CalendarSettings extends LitElement {
                 this._poll = setTimeout(check, wait);
                 return;
             }
-            this._signin = null;
-            elf.run('refresh').catch(() => {});
+            this._added(name);
         };
         this._poll = setTimeout(check, wait);
     }
@@ -599,10 +653,7 @@ class CalendarSettings extends LitElement {
         ev.preventDefault();
         const address = ev.target.address.value.trim();
         if (!address) return;
-        if (await this._act('microsoft-finish', { address })) {
-            this._signin = null;
-            elf.run('refresh').catch(() => {});
-        }
+        if (await this._act('microsoft-finish', { address })) this._added(this._signin?.name ?? 'your Outlook calendar');
     }
 
     /** What Evolution, Thunderbird or Apple Calendar keep on this machine, and .ics files you saved, to tick and add. */
@@ -630,86 +681,125 @@ class CalendarSettings extends LitElement {
             if (!ok) break;
             added++;
         }
-        const error = this._error;
-        await this._findLocal();
-        this._error ??= error;
-        if (added) elf.run('refresh').catch(() => {});
+        if (added) this._added(added > 1 ? `${added} calendars` : '1 calendar');
     }
 
     async _remove(c) {
-        if (await this._act('remove-calendar', { slot: c.slot })) {
-            if (this._found) this._findLocal();
-            elf.run('refresh').catch(() => {});
-        }
+        this._said = null;
+        if (await this._act('remove-calendar', { slot: c.slot })) elf.run('refresh').catch(() => {});
     }
 
-    _local(full) {
-        const found = this._found, picked = [...this._picked].length;
-        return html`
-            <div class="row">
-                <button ?disabled=${this._busy} @click=${this._findLocal}>Find calendars</button>
-                ${tip(html`Looks for the calendars Evolution (and GNOME Calendar), Thunderbird or Apple Calendar keep on this
-                    machine, and for .ics files in Documents, Downloads and Desktop. It reads their copy and never changes
-                    it, so a calendar is as up to date as that app's last sync, or the file's last save. Good for a work
-                    calendar Outlook won't publish.`)}
-                ${this._busy && !found ? spinner : ''}
+    _choices() {
+        return html`<div class="choices">${Object.entries(PROVIDERS).map(([k, p]) => html`
+            <button @click=${() => this._pickProvider(k)}><b>${p.label}</b><span>${p.sub}</span></button>`)}</div>`;
+    }
+
+    _msHow() {
+        return html`<div class="choices">
+            <button @click=${() => this._go(this._ms?.app ? 'ms-signin' : 'ms-app')}><b>Sign in</b>
+                <span>Reads it the way Evolution and Thunderbird do, as an app Microsoft knows.</span></button>
+            <button @click=${() => this._go('link')}><b>Published link</b>
+                <span>An ICS link from Outlook's Publish a calendar, if your account allows it.</span></button>
+        </div>`;
+    }
+
+    _msApp() {
+        const ms = this._ms ?? {};
+        const org = this._org ?? !!(ms.tenant || ms.redirect);
+        return html`<form @submit=${this._setApp}>
+            <p class="help">Microsoft only lets an app it knows read a calendar, so Calendar signs in as one. Use the
+                Application (client) ID of an app registered in Microsoft Entra: one you made (<a href=${README}
+                target="_blank" rel="noopener">the README says how</a>), or one your organisation already allows, like
+                the one its Evolution uses. Calendar keeps it for the next calendar too.</p>
+            <label>App ID<input name="app" type="text" maxlength="36" autocomplete="off" spellcheck="false" .value=${ms.app ?? ''}
+                placeholder="1a2b3c4d-1a2b-1a2b-1a2b-1a2b3c4d5e6f"></label>
+            <label class="check"><input name="org" type="checkbox" .checked=${org} @change=${e => this._org = e.target.checked}>
+                It's my organisation's own app, like the one Evolution uses</label>
+            ${org ? html`<div class="fields">
+                <label>Organisation<input name="tenant" type="text" maxlength="100" autocomplete="off" spellcheck="false"
+                    .value=${ms.tenant ?? ''} placeholder="Directory (tenant) ID or contoso.com"></label>
+                <label>Return address<input name="redirect" type="url" maxlength="400" autocomplete="off" spellcheck="false"
+                    .value=${ms.redirect ?? ''} placeholder="https://login.microsoftonline.com/common/oauth2/nativeclient"></label>
             </div>
-            ${!found ? '' : !found.length ? html`<p class="empty">None found. Open Evolution, Thunderbird or Apple Calendar
-                once, or save an .ics file in Documents, then Find calendars again.</p>` : html`
+            <p class="help">Both are in the app's settings in Microsoft Entra, or in Evolution's account settings. Leave
+                Return address empty if the app takes a sign-in code.</p>` : html`
+            <p class="help">Your admin may have to allow the app first, as they allowed Thunderbird or Evolution.</p>`}
+            <div class="row"><button type="submit" class="primary" ?disabled=${this._busy}>${this._busy ? spinner : ''}Next</button></div>
+        </form>`;
+    }
+
+    _msSignIn() {
+        const s = this._signin, ms = this._ms ?? {};
+        if (s?.paste) return html`<div class="code" role="status">
+            <p><a href=${s.url} target="_blank" rel="noopener">Open Microsoft's sign-in</a> and sign in to your work account.
+                You land on a blank page: copy its whole address from the address bar and paste it here straight away, as
+                the code in it only lasts a few minutes.</p>
+            <form @submit=${this._finish}>
+                <input name="address" type="url" required autocomplete="off" spellcheck="false" aria-label="The blank page's address"
+                    placeholder="https://…?code=…">
+                <div class="row"><button type="submit" class="primary" ?disabled=${this._busy}>${this._busy ? spinner : ''}Finish signing in</button></div>
+            </form>
+        </div>`;
+        if (s) return html`<div class="code" role="status">
+            <p>Open <a href=${s.url} target="_blank" rel="noopener">${s.url}</a>, type this code and sign in to your work
+                or school account:</p>
+            <p><b>${s.code}</b></p>
+            <p class="help">${spinner}Waiting for you to sign in. Your calendar shows up in the list once you have.</p>
+        </div>`;
+        return html`<form @submit=${this._signIn}>
+            <p class="help">Signs in as app <span class="app">${ms.app}</span>${ms.tenant ? ' of your organisation' : ''}.
+                <button type="button" class="sm quiet" @click=${() => this._go('ms-app')}>Change app</button></p>
+            ${ms.redirect ? html`<p class="help">Your organisation's app is allowed to change calendars as well as read them,
+                so that's what Microsoft asks you to allow. Calendar only reads them.</p>` : ''}
+            <label>Name<input name="name" type="text" maxlength="40" placeholder="Work" autocomplete="off"></label>
+            <div class="row"><button type="submit" class="primary" ?disabled=${this._busy}>${this._busy ? spinner : ''}Sign in to Microsoft</button></div>
+        </form>`;
+    }
+
+    _link() {
+        const p = PROVIDERS[this._provider];
+        return html`<form @submit=${this._add}>
+            <p class="help">${p.help}</p>
+            <div class="fields">
+                <label>Name<input name="name" type="text" maxlength="40" placeholder="Work" autocomplete="off"></label>
+                <label>${p.field}<input name="address" type="password" maxlength="500" placeholder=${p.placeholder} autocomplete="off"></label>
+            </div>
+            <p class="help">Anyone with this address can read the calendar, so it's kept like a password and never shown again.</p>
+            <div class="row"><button type="submit" class="primary" ?disabled=${this._busy}>${this._busy ? spinner : ''}Add calendar</button></div>
+        </form>`;
+    }
+
+    _local() {
+        const found = this._found, picked = this._picked.size;
+        return html`
+            <p class="help">The calendars Evolution (and GNOME Calendar), Thunderbird or Apple Calendar keep on this machine,
+                and .ics files in Documents, Downloads and Desktop. Calendar reads their copy and never changes it, so it's
+                as up to date as that app's last sync. Good for a work calendar Outlook won't publish.</p>
+            ${!found ? html`<div class="skeleton"></div>` : !found.length ? html`<p class="empty">None found. Open Evolution,
+                Thunderbird or Apple Calendar once, or save an .ics file in Documents, then look again.</p>
+                <div class="row"><button ?disabled=${this._busy} @click=${this._findLocal}>Look again</button></div>` : html`
                 <ul>${found.map(f => html`<li><label>
                     <input type="checkbox" ?disabled=${f.added || this._busy} .checked=${f.added || this._picked.has(f.source)}
                         @change=${e => this._pick(f, e.target.checked)}>
                     <span>${f.name}</span><span class="where">${f.added ? 'Added' : f.file ? f.source : f.app}</span></label></li>`)}</ul>
-                <div class="row"><button ?disabled=${this._busy || full || !picked} @click=${this._addPicked}>Add ${picked > 1
+                <div class="row"><button class="primary" ?disabled=${this._busy || !picked} @click=${this._addPicked}>Add ${picked > 1
                     ? `${picked} calendars` : 'calendar'}</button></div>`}`;
     }
 
-    _online() {
-        const p = PROVIDERS[this._provider];
-        const ms = this._provider === 'microsoft', signIn = ms && this._msWay !== 'link';
-        return html`
+    _wizard() {
+        const s = this._step, p = PROVIDERS[this._provider];
+        const where = s === 'provider' ? '' : s === 'ms-app' ? 'Microsoft, the app it signs in as' : s === 'ms-signin' ? 'Microsoft, sign in'
+            : s === 'link' && this._provider === 'microsoft' ? 'Microsoft, published link' : this._provider === 'local' ? 'this machine' : p?.label;
+        return html`<section class="wizard" aria-labelledby="add-h">
+            <h3 id="add-h">${s === 'provider' ? 'Where is the calendar?' : html`Add a calendar <span>from ${where}</span>`}</h3>
+            ${this._error ? html`<p class="error" role="alert">${this._error}</p>` : ''}
+            ${s === 'provider' ? this._choices() : s === 'ms-how' ? this._msHow() : s === 'ms-app' ? this._msApp()
+                : s === 'ms-signin' ? this._msSignIn() : s === 'local' ? this._local() : this._link()}
             <div class="row">
-                <span class="seg">${Object.entries(PROVIDERS).map(([k, v]) => html`<button class="quiet"
-                    aria-pressed=${this._provider === k} @click=${() => { this._provider = k; this._error = null; }}>${v.label}</button>`)}</span>
+                ${s !== 'provider' ? html`<button class="sm quiet" @click=${this._back}>Back</button>` : ''}
+                <button class="sm quiet" @click=${() => this._go(null)}>Cancel</button>
             </div>
-            ${!p ? '' : html`
-                ${ms ? html`<div class="row">
-                    <span class="seg">
-                        <button class="quiet sm" aria-pressed=${signIn} @click=${() => this._msWay = 'signin'}>Sign in</button>
-                        <button class="quiet sm" aria-pressed=${!signIn} @click=${() => this._msWay = 'link'}>ICS link</button>
-                    </span>
-                    ${tip(signIn ? html`Reads your Outlook calendar the way Thunderbird and Evolution do, and can't change
-                        anything. It needs a Microsoft app ID, set below in these settings (the README says how to get one),
-                        and your admin may have to allow that app, as they did for Thunderbird. An organisation's app that
-                        won't take a code also needs Microsoft organisation and Microsoft return address.` : p.help)}
-                </div>` : ''}
-                ${signIn ? this._signin?.paste ? html`<div class="code" role="status">
-                    <p><a href=${this._signin.url} target="_blank" rel="noopener">Open Microsoft's sign-in</a> and sign in to your
-                        work account. You land on a blank page: copy its whole address from the address bar and paste it here
-                        straight away, as the code in it only lasts a few minutes.</p>
-                    <form class="ms" @submit=${this._finish}>
-                        <input name="address" type="url" required autocomplete="off" spellcheck="false" aria-label="The blank page's address"
-                            placeholder="https://…?code=…">
-                        <button type="submit" ?disabled=${this._busy}>Finish signing in</button>
-                        <button type="button" class="quiet sm" @click=${() => this._signin = null}>Stop</button>
-                    </form>
-                </div>` : this._signin ? html`<div class="code" role="status">
-                    <p>Open <a href=${this._signin.url} target="_blank" rel="noopener">${this._signin.url}</a>, type this code
-                        and sign in to your work or school account:</p>
-                    <p><b>${this._signin.code}</b></p>
-                    <p class="help">${spinner}Waiting for you to sign in. Your calendar shows up in the list once you have.</p>
-                </div>` : html`
-                <form class="ms" @submit=${this._signIn}>
-                    <label>Name<input name="name" type="text" maxlength="40" placeholder="Work" autocomplete="off"></label>
-                    <button type="submit" ?disabled=${this._busy}>Sign in to Microsoft</button>
-                </form>` : html`
-                <form @submit=${this._add}>
-                    <label>Name<input name="name" type="text" maxlength="40" placeholder="Work" autocomplete="off"></label>
-                    <label><span class="row">${p.field}${ms ? '' : tip(p.help)}${tip(html`Anyone with this address can read the
-                        calendar, so it's kept like a password and never shown again.`)}</span>
-                        <input name="address" type="password" maxlength="500" placeholder=${p.placeholder} autocomplete="off"></label>
-                    <button type="submit" ?disabled=${this._busy}>Add calendar</button>
-                </form>`}`}`;
+        </section>`;
     }
 
     render() {
@@ -719,20 +809,13 @@ class CalendarSettings extends LitElement {
             ${!list ? html`<div class="skeleton"></div>` : list.length ? html`<ul>${list.map(c => html`<li>
                 <span class="dot" style="background:${colour(c.slot)}"></span><span>${c.name}</span>
                 <span class="where">${c.where}</span><span class="spacer"></span>
-                <button class="sm quiet" ?disabled=${this._busy} @click=${() => this._remove(c)}>Remove</button></li>`)}</ul>`
-                : html`<p class="empty">No calendars yet.</p>`}
-            ${this._error ? html`<p class="error" role="alert">${this._error}</p>` : ''}
-            ${full ? html`<p class="help">That's ${this._max}, as many as it reads. Remove one to add another.</p>` : html`
-                <div class="row">
-                    <span class="seg">
-                        <button class="quiet" aria-pressed=${this._where === 'local'} @click=${() => this._where = 'local'}>On this machine</button>
-                        <button class="quiet" aria-pressed=${this._where === 'online'} @click=${() => this._where = 'online'}>Online</button>
-                    </span>
-                    ${tip(html`Add as many calendars as you like, one at a time. On this machine: calendars Evolution,
-                        Thunderbird or Apple Calendar already show, or an .ics file. Online: Google, Microsoft, iCloud or
-                        any other with an iCal address.`)}
-                </div>
-                ${this._where === 'local' ? this._local(full) : this._where === 'online' ? this._online() : ''}`}`;
+                <button class="sm quiet" ?disabled=${this._busy || !!this._step} @click=${() => this._remove(c)}>Remove</button></li>`)}</ul>`
+                : html`<p class="empty">No calendars yet. Add calendar to put your first one here.</p>`}
+            ${this._said ? html`<p class="help" role="status">${this._said}</p>` : ''}
+            ${this._step ? this._wizard() : html`
+                ${this._error ? html`<p class="error" role="alert">${this._error}</p>` : ''}
+                ${full ? html`<p class="help">That's ${this._max}, as many as it reads. Remove one to add another.</p>`
+                    : html`<div class="row"><button class="primary" ?disabled=${!list} @click=${() => this._go('provider')}>Add calendar</button></div>`}`}`;
     }
 }
 

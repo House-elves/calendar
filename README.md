@@ -30,21 +30,20 @@ even offline. If one calendar can't be read, it keeps showing what it read last 
 ## Adding it
 
 1. On Elf Desk, click **+** and pick **Calendar**.
-2. In its **Settings**, at the top, pick **On this machine** or **Online**. Add as many calendars as you like (up to
-   20), one at a time; **Remove** takes one off again. The **?** next to each choice says where to find what it asks
-   for.
-   - **On this machine:** click **Find calendars**. It lists the calendars Evolution, Thunderbird or Apple Calendar
-     already keep here (see below), and the `.ics` files in your *Documents*, *Downloads* and *Desktop* folders (a few
-     folders deep). Tick the ones you want and click **Add calendar**.
-   - **Online:** pick where the calendar lives, give it a short name, and it asks for only what that one needs:
+2. In its **Settings**, click **Add calendar**. It asks where the calendar is, then only what that one needs. Add as
+   many as you like (up to 20), one at a time; **Remove** takes one off again.
+   - **On this machine:** it lists the calendars Evolution, Thunderbird or Apple Calendar already keep here (see
+     below), and the `.ics` files in your *Documents*, *Downloads* and *Desktop* folders (a few folders deep). Tick
+     the ones you want and click **Add calendar**.
+   - **Online:** give it a short name and what that one needs:
      - **Google** (Gmail, Google Workspace): its *Secret address in iCal format*: Google Calendar's Settings, your
        calendar, *Integrate calendar*. If a work account has no such field, your admin has turned it off.
-     - **Microsoft** (Office 365, Outlook.com): **Sign in** (see *Signing in to Microsoft* below), or its **ICS link**:
+     - **Microsoft** (Office 365, Outlook.com): **Sign in** (see *Signing in to Microsoft* below), or a **Published link**:
        not the calendar's own *Sharing and permissions*, which only invites people by email. Click the gear at the top
        right of Outlook for *Settings*, then *Calendar*, *Shared calendars*. Under *Publish a calendar*, pick the
        calendar and *Can view all details* (or meeting links are left out), click *Publish*, then copy the ICS link.
        No *Publish a calendar*? Your admin turned publishing off: sign in instead, or add it from Evolution or
-       Thunderbird under *On this machine*. In classic Outlook for Windows you can also save the calendar as an `.ics`
+       Thunderbird with *On this machine*. In classic Outlook for Windows you can also save the calendar as an `.ics`
        file (*File*, *Save Calendar*, *More Options*, *Full details*) in *Documents* and find it under *On this
        machine*; it's read again at each refresh.
      - **iCloud:** share the calendar as a *Public Calendar* and copy its link (`webcal://` is fine).
@@ -55,7 +54,7 @@ even offline. If one calendar can't be read, it keeps showing what it read last 
 
 Evolution, Thunderbird and Apple Calendar sign in to your accounts themselves, with your organisation's blessing, and
 keep a copy of each calendar on this machine. Calendar can read that copy, so a work Outlook calendar that Evolution
-shows needs no address and no admin. In Settings, under *On this machine*, click **Find calendars**, tick it and
+shows needs no address and no admin. In Settings, click **Add calendar**, then **On this machine**, tick it and
 click **Add calendar**. It's read again at each refresh, and it's as up to date as the app's last sync, so leave the app running (or open
 it now and then).
 
@@ -71,18 +70,19 @@ If it finds none, none of these apps has a calendar here and there's no `.ics` f
 ### Signing in to Microsoft
 
 Thunderbird and Evolution don't need a published address: you sign in to your Microsoft account, and they read the
-calendar through Microsoft's own interface. **Sign in to Microsoft**, under *Online*, *Microsoft*, does the same. Give the calendar a name and click
-it; Settings shows a code. Open the link it shows (microsoft.com/devicelogin), type the code and sign in as you always
+calendar through Microsoft's own interface. **Add calendar**, **Microsoft**, **Sign in** does the same. Give the calendar a name and click **Sign in to
+Microsoft**; Settings shows a code. Open the link it shows (microsoft.com/devicelogin), type the code and sign in as you always
 do. Your password goes only to Microsoft. Calendar asks only to read your calendars and who you are, so it can't
 change or send anything, and it stays signed in until you remove the calendar or your organisation takes it back.
 
-Microsoft only lets an app it knows sign in, so it needs a **Microsoft app ID** in Calendar's settings. To make one,
+Microsoft only lets an app it knows sign in, so the first time it asks for an **app ID**, and keeps it in Calendar's
+settings (**Microsoft app ID**) for the next calendar. To make one,
 in the [Microsoft Entra admin center](https://entra.microsoft.com): *App registrations*, *New registration*, any name,
 *Accounts in any organizational directory and personal Microsoft accounts*, no redirect address. Copy its
-*Application (client) ID* into Calendar's settings. Under *Authentication*, turn on *Allow public client flows*; under
+*Application (client) ID* when Calendar asks for it. Under *Authentication*, turn on *Allow public client flows*; under
 *API permissions*, add Microsoft Graph's delegated `Calendars.Read` and `User.Read`.
 
-Your organisation may already have an app it allows for your calendar, for example one it registered for Evolution, that won't take a sign-in code. Calendar can sign in with it the way Evolution does. Set **Microsoft app ID**, **Microsoft organisation** (its tenant ID) and **Microsoft return address** (its redirect URI, for example `https://login.microsoftonline.com/common/oauth2/nativeclient`) from that app's settings. In Evolution they're under the account's *Advanced settings*. **Sign in to Microsoft** then gives a link instead of a code. Sign in there, and you land on a blank page. Copy its whole address and paste it into Calendar straight away. Such an app is allowed to change calendars (`Calendars.ReadWrite`), so that's the permission Microsoft gives Calendar, but Calendar still only reads them. Using an app your organisation registered for another program is between you and your organisation, so check that it's allowed.
+Your organisation may already have an app it allows for your calendar, for example one it registered for Evolution, that won't take a sign-in code. Calendar can sign in with it the way Evolution does. When Calendar asks for the app, give its ID, tick *It's my organisation's own app*, and give its **Organisation** (its tenant ID) and **Return address** (its redirect URI, for example `https://login.microsoftonline.com/common/oauth2/nativeclient`) from that app's settings. In Evolution they're under the account's *Advanced settings*. **Sign in to Microsoft** then gives a link instead of a code. **Change app** sets another one. Sign in there, and you land on a blank page. Copy its whole address and paste it into Calendar straight away. Such an app is allowed to change calendars (`Calendars.ReadWrite`), so that's the permission Microsoft gives Calendar, but Calendar still only reads them. Using an app your organisation registered for another program is between you and your organisation, so check that it's allowed.
 
 Thunderbird and Evolution work at your organisation because your admin has allowed them. If signing in says your
 organisation has to allow Calendar's app first, send your admin its app ID and ask them to grant it `Calendars.Read`:

@@ -9,6 +9,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 
 /**
@@ -204,13 +206,25 @@ public class Config {
 
     /** The config file with this slot's lines replaced, written whole and owner-only, as the desk writes it. */
     static void rewrite(int slot, Map<String, String> lines) throws IOException {
+        rewrite(Set.of("CAL" + slot + "_NAME", "CAL" + slot + "_ICS_SECRET"), lines);
+    }
+
+    /** Settings Calendar's own Settings set, like the Microsoft app: an empty value takes its line out. */
+    static void set(Map<String, String> values) throws IOException {
+        Map<String, String> lines = new TreeMap<>(values);
+        lines.values().removeIf(String::isEmpty);
+        rewrite(values.keySet(), lines);
+    }
+
+    /** The config file without these keys' lines, these lines added, written whole and owner-only. */
+    static void rewrite(Set<String> drop, Map<String, String> lines) throws IOException {
         List<String> out = new ArrayList<>();
         if (Files.exists(FILE)) {
             for (String line : Files.readAllLines(FILE)) {
                 String key = line.strip();
                 int eq = key.indexOf('=');
                 key = eq > 0 ? key.substring(0, eq).strip() : "";
-                if (!key.equals("CAL" + slot + "_NAME") && !key.equals("CAL" + slot + "_ICS_SECRET")) out.add(line);
+                if (!drop.contains(key)) out.add(line);
             }
         }
         // Name first, then address, so the file reads in pairs.
