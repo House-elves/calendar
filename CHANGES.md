@@ -3,6 +3,10 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.12.1
+
+- Adding a KOrganizer calendar works: 0.12.0 listed them but said "source isn't valid" when you added one.
+
 ## 0.12.0
 
 - New: KOrganizer's calendars (KDE's Akonadi), under Add calendar, On this machine. KOrganizer signs in to Google
