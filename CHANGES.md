@@ -3,6 +3,10 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.8.1
+
+- **Refresh calendars** sits next to Settings at the top, so the calendar starts higher up the page.
+
 ## 0.8.0
 
 - New: **Add calendar** in Settings walks you through it. Pick where the calendar is (Google, Microsoft, iCloud, On this

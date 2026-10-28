@@ -1,7 +1,7 @@
 # A House Elves elf: what Elf Desk needs to install, set up and run calendar. AGENTS.md says what each field means.
 name: calendar
 title: Calendar
-version: 0.8.0
+version: 0.8.1
 author: "@phillip-kruger"
 description: Puts all your calendars, Gmail, Google Workspace, Office 365, iCloud, any other with an iCal address or .ics file, or the ones Evolution, Thunderbird or Apple Calendar already keep on this machine, together in one day, week or month view, with every event's details and a link to join each meeting.
 main: Calendar.java

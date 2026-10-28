@@ -78,6 +78,8 @@ class CalendarTab extends LitElement {
 
     static styles = [shared, css`
         .page { display: grid; gap: 22px; }
+        /* Refresh sits by Settings, so the calendar starts higher up. */
+        .top-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px 12px; max-width: 100%; }
         h1 { font-size: 34px; line-height: 1.15; font-weight: 600; letter-spacing: -0.022em; }
         .sub { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
         .tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
@@ -343,10 +345,9 @@ class CalendarTab extends LitElement {
                 <div class="page-top"><div>
                     <h1>Calendar</h1>
                     <p class="sub">${sub}</p>
-                </div>${settingsButton(null, 'Calendar settings')}</div>
-                <elf-run-bar command="refresh" label="Refresh calendars"
-                    note="Reads your calendars through their private addresses and saves the events here. It never changes a calendar."
-                    @run-finished=${() => this._load()}></elf-run-bar>
+                </div><div class="top-acts">
+                    <elf-run-bar command="refresh" label="Refresh calendars" @run-finished=${() => this._load()}></elf-run-bar>
+                    ${settingsButton(null, 'Calendar settings')}</div></div>
                 ${this._error ? html`<p class="error" role="alert">${this._error}</p>` : ''}
                 ${cals.filter(c => c.error).map(c => html`<p class="error" role="alert">Couldn't read ${c.name}: ${c.error}${
                     c.readAt ? ` Showing what was read ${ago(new Date(c.readAt))}.` : ''}</p>`)}
