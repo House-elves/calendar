@@ -115,12 +115,18 @@ class CalendarTab extends LitElement {
         .cell .n { font-size: 12px; color: var(--muted); background: none; border: 0; padding: 2px 4px; justify-self: start; cursor: pointer; }
         .cell .n.today { color: white; background: var(--accent); border-radius: 10px; }
         .more { font-size: 12px; color: var(--muted); background: none; border: 0; padding: 0 4px; cursor: pointer; text-align: left; }
-        .detail { padding: 20px 24px; display: grid; gap: 12px; }
+        dialog.detail { position: fixed; margin: 0; padding: 20px 24px; width: min(40rem, calc(100vw - 16px));
+            max-height: min(80vh, 40rem); overflow-y: auto; box-sizing: border-box; color: inherit;
+            box-shadow: 0 12px 40px rgb(0 0 0 / 0.35); }
+        dialog.detail[open] { display: grid; gap: 12px; }
+        dialog.detail::backdrop { background: rgb(0 0 0 / 0.25); }
+        .detail summary { cursor: pointer; }
+        .detail details .people { margin-top: 6px; }
         .detail h2 { margin: 0; font-size: 22px; }
         .detail dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; font-size: 14px; }
         .detail dt { color: var(--muted); }
         .detail dd { margin: 0; overflow-wrap: anywhere; }
-        .detail pre { margin: 0; white-space: pre-wrap; font: inherit; font-size: 14px; overflow-wrap: anywhere; max-height: 50vh; overflow-y: auto; }
+        .detail pre { margin: 0; white-space: pre-wrap; font: inherit; font-size: 14px; overflow-wrap: anywhere; }
         .detail .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
         .people { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
         .empty { color: var(--muted); padding: 18px; margin: 0; }
@@ -203,7 +209,7 @@ class CalendarTab extends LitElement {
         const c = this._colour(e);
         return html`<button class="ev chip ${e.declined ? 'declined' : ''} ${e.tentative ? 'tentative' : ''}"
             style="border-left-color:${c};background:color-mix(in srgb, ${c} 14%, transparent)"
-            title=${e.title} @click=${() => { this._open = e; }}>${label && !e.allDay ? html`<small>${time(startOf(e))}</small> ` : ''}${e.title}</button>`;
+            title=${e.title} @click=${ev => this._show(e, ev)}>${label && !e.allDay ? html`<small>${time(startOf(e))}</small> ` : ''}${e.title}</button>`;
     }
 
     /** Timed events side by side when they overlap: each gets a column within its group. */
@@ -249,7 +255,7 @@ class CalendarTab extends LitElement {
                                 style="top:${(start - d) / 3600000 * 48}px;height:${Math.max(18, (end - start) / 3600000 * 48 - 2)}px;
                                     left:${col / n * 100}%;width:calc(${100 / n}% - 3px);border-left-color:${c};
                                     background:color-mix(in srgb, ${c} 16%, var(--panel, white))"
-                                title=${e.title} @click=${() => { this._open = e; }}>
+                                title=${e.title} @click=${ev => this._show(e, ev)}>
                                 <strong>${e.title}</strong><br><small>${time(startOf(e))}–${time(endOf(e))}</small></button>`;
                         })}</div>`)}
                 </div>
@@ -303,21 +309,51 @@ class CalendarTab extends LitElement {
             : `${longDay(s)}, ${time(s)}–${time(en)}${sameDay(s, new Date(en - 1)) ? '' : ` (${longDay(en)})`}`;
         const who = p => p.name ? `${p.name}${p.email ? ` <${p.email}>` : ''}` : p.email ?? '';
         const answers = { accepted: 'yes', declined: 'no', tentative: 'maybe', 'needs-action': 'not answered' };
-        return html`<div class="panel detail" role="dialog" aria-label=${e.title}>
+        const said = e.attendees?.reduce((n, p) => ({ ...n, [p.answer]: (n[p.answer] ?? 0) + 1 }), {}) ?? {};
+        const invited = (e.attendees?.length ?? 0) + (e.moreAttendees ?? 0);
+        const summary = [['accepted', 'yes'], ['declined', 'no'], ['tentative', 'maybe']]
+            .filter(([a]) => said[a]).map(([a, w]) => `${said[a]} ${w}`).join(', ');
+        return html`
             <div class="row"><h2>${e.title}</h2><span class="spacer"></span>
                 ${e.join ? html`<a class="button primary" href=${e.join.url}>Join ${e.join.kind}</a>` : ''}
-                <button class="quiet" @click=${() => { this._open = null; }}>Close</button></div>
+                <button class="quiet" @click=${() => this._close()}>Close</button></div>
             <dl>
                 <dt>When</dt><dd>${when}${e.declined ? ' (you declined)' : e.tentative ? ' (tentative)' : ''}</dd>
                 ${e.location ? html`<dt>Where</dt><dd>${this._linked(e.location, e.links)}</dd>` : ''}
                 ${e.organizer ? html`<dt>Organiser</dt><dd>${who(e.organizer)}</dd>` : ''}
-                ${e.attendees?.length ? html`<dt>Invited</dt><dd><ul class="people">${e.attendees.map(p => html`<li>${who(p)}${
+                ${e.attendees?.length ? html`<dt>Invited</dt><dd><details><summary>${invited} ${invited === 1 ? 'person' : 'people'}${
+                    summary ? html` <span class="muted">(${summary})</span>` : ''}</summary>
+                    <ul class="people">${e.attendees.map(p => html`<li>${who(p)}${
                     p.answer && answers[p.answer] ? html` <span class="muted">(${answers[p.answer]})</span>` : ''}</li>`)}
-                    ${e.moreAttendees ? html`<li class="muted">and ${e.moreAttendees} more</li>` : ''}</ul></dd>` : ''}
+                    ${e.moreAttendees ? html`<li class="muted">and ${e.moreAttendees} more</li>` : ''}</ul></details></dd>` : ''}
                 <dt>Calendar</dt><dd>${e.calendars.map((c, i) => html`${i ? ', ' : ''}<span class="dot" style="background:${colour(c)}"></span> ${this._name(c)}`)}</dd>
             </dl>
-            ${e.description ? html`<pre>${this._linked(e.description, e.links)}</pre>` : ''}
-        </div>`;
+            ${e.description ? html`<pre>${this._linked(e.description, e.links)}</pre>` : ''}`;
+    }
+
+    /**
+     * Opens an event's details in a pop-up next to where you clicked it. The desk's page scrolls, not this frame, so
+     * the middle of the frame may be off screen; where you clicked never is.
+     */
+    _show(e, ev) {
+        this._anchor = ev?.currentTarget?.getBoundingClientRect?.() ?? null;
+        this._open = e;
+    }
+
+    _close() {
+        this.renderRoot.querySelector('dialog.detail')?.close();
+    }
+
+    /** Below what you clicked, or above it when there's no room below, and always inside the frame. */
+    _place(d) {
+        const a = this._anchor, h = d.offsetHeight, w = d.offsetWidth;
+        const room = document.documentElement.clientHeight;
+        let top = a ? a.bottom + 8 : 16;
+        if (a && top + h > room - 8) top = a.top - h - 8;
+        top = Math.max(8, Math.min(top, room - h - 8));
+        const left = a ? Math.max(8, Math.min(a.left, document.documentElement.clientWidth - w - 8)) : (document.documentElement.clientWidth - w) / 2;
+        d.style.top = `${top}px`;
+        d.style.left = `${left}px`;
     }
 
     _title() {
@@ -355,7 +391,7 @@ class CalendarTab extends LitElement {
                 ${!d && !this._loading ? html`<p class="panel empty">Add a calendar with its private iCal address in Settings,
                     then Refresh calendars. Settings says where to find it in Google Calendar, Outlook and iCloud.</p>` : ''}
                 ${d ? html`
-                    ${next ? html`<p class="sub">Next: <a href="#" @click=${ev => { ev.preventDefault(); this._open = next; }}>${next.title}</a>
+                    ${next ? html`<p class="sub">Next: <a href="#" @click=${ev => { ev.preventDefault(); this._show(next, ev); }}>${next.title}</a>
                         ${startOf(next) <= new Date() ? 'is on now' : until(startOf(next))}.
                         ${next.join ? html` <a href=${next.join.url}>Join ${next.join.kind}</a>` : ''}</p>` : ''}
                     <div class="tools">
@@ -371,9 +407,11 @@ class CalendarTab extends LitElement {
                         @change=${() => this._toggle(c.slot)}><span class="dot" style="background:${colour(c.slot)}"></span>${c.name}</label>`)}</div>
                     ${outside ? html`<p class="panel empty">This is outside what was read (${longDay(dayOf(d.from))} to ${
                         longDay(addDays(dayOf(d.to), -1))}). Raise Weeks ahead in Settings to read further.</p>` : ''}
-                    ${this._open ? this._detail(this._open) : ''}
                     ${body}` : ''}
             </div>
+            <dialog class="panel detail" aria-label=${this._open?.title ?? 'Event'} @close=${() => { this._open = null; }}
+                @click=${ev => { if (ev.target === ev.currentTarget) this._close(); }}>
+                ${this._open ? this._detail(this._open) : ''}</dialog>
         `;
     }
 
@@ -382,6 +420,12 @@ class CalendarTab extends LitElement {
         if (changed.has('_view') || (changed.has('_data') && !changed.get('_data'))) {
             const s = this.renderRoot.querySelector('.scroll');
             if (s) s.scrollTop = 7 * 48;
+        }
+        if (changed.has('_open') && this._open) {
+            const d = this.renderRoot.querySelector('dialog.detail');
+            if (!d.open) d.showModal();
+            this._place(d);
+            d.querySelector('button')?.focus();
         }
     }
 }

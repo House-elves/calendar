@@ -3,6 +3,11 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.10.0
+
+- An event's details open in a pop-up next to it, not at the top of the page. Esc or a click outside closes it.
+- Who's invited is folded up to how many and who said yes, no or maybe: click it to see everyone.
+
 ## 0.9.1
 
 - Settings no longer lists Calendar 1, 2 and 3 from the first version. Your calendars stay as they are: add and
