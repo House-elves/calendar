@@ -58,7 +58,7 @@ import java.util.regex.Pattern;
  * With --action it answers its Settings list: the calendars, adding one, signing in to Microsoft, removing one. It only reads: it never
  * changes a calendar, and sends nothing anywhere.
  */
-@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.11.1", description = "Reads your calendars for Elf Desk")
+@Command(name = "calendar", mixinStandardHelpOptions = true, version = "0.12.0", description = "Reads your calendars for Elf Desk")
 public class Calendar implements Callable<Integer> {
 
     static final ObjectMapper JSON = new ObjectMapper();
@@ -341,7 +341,8 @@ public class Calendar implements Callable<Integer> {
             String description = clip(plain(e.text("DESCRIPTION")), 20_000);
             if (!description.isBlank()) n.put("description", description);
             Set<String> links = new LinkedHashSet<>();
-            for (String text : List.of(e.text("X-GOOGLE-CONFERENCE"), e.text("X-MICROSOFT-SKYPETEAMSMEETINGURL"), location,
+            // Google's Meet link as Google writes it, and as KOrganizer keeps it.
+            for (String text : List.of(e.text("X-GOOGLE-CONFERENCE"), e.text("X-KDE-LIBKGAPI-EVENTHANGOUTLINK"), e.text("X-MICROSOFT-SKYPETEAMSMEETINGURL"), location,
                     e.text("URL"), description)) {
                 Matcher m = URL.matcher(text);
                 while (m.find() && links.size() < 40) {

@@ -491,7 +491,8 @@ const PROVIDERS = {
         label: 'Google', sub: 'Gmail or Google Workspace',
         field: 'Secret address in iCal format', placeholder: 'https://calendar.google.com/calendar/ical/…/basic.ics',
         help: html`Open Google Calendar's Settings, pick your calendar, then Integrate calendar, and copy Secret address in
-            iCal format. If a work account has no such field, your admin has turned it off: go Back and Sign in instead.`,
+            iCal format. If a work account has no such field, your admin has turned it off: go Back and Sign in, or add it in
+            KOrganizer, Evolution or Thunderbird and pick it under On this machine.`,
     },
     microsoft: {
         label: 'Microsoft', sub: 'Outlook, Office 365 or Outlook.com',
@@ -507,7 +508,7 @@ const PROVIDERS = {
         help: html`In Apple Calendar or at icloud.com, share the calendar as a Public Calendar and copy its link.`,
     },
     local: {
-        label: 'On this machine', sub: 'What Evolution, Thunderbird or Apple Calendar show, or an .ics file',
+        label: 'On this machine', sub: 'What KOrganizer, Evolution, Thunderbird or Apple Calendar show, or an .ics file',
     },
     other: {
         label: 'Other', sub: 'Any calendar with an iCal address',
@@ -710,7 +711,7 @@ class CalendarSettings extends LitElement {
         if (await this._act('microsoft-finish', { address })) this._added(this._signin?.name ?? 'your Outlook calendar');
     }
 
-    /** What Evolution, Thunderbird or Apple Calendar keep on this machine, and .ics files you saved, to tick and add. */
+    /** What KOrganizer, Evolution, Thunderbird or Apple Calendar keep on this machine, and .ics files you saved, to tick and add. */
     async _findLocal() {
         if (await this._act('local-calendars', {})) {
             this._found = this._answer?.found ?? [];
@@ -848,11 +849,12 @@ class CalendarSettings extends LitElement {
     _local() {
         const found = this._found, picked = this._picked.size;
         return html`
-            <p class="help">The calendars Evolution (and GNOME Calendar), Thunderbird or Apple Calendar keep on this machine,
-                and .ics files in Documents, Downloads and Desktop. Calendar reads their copy and never changes it, so it's
-                as up to date as that app's last sync. Good for a work calendar Outlook won't publish.</p>
-            ${!found ? html`<div class="skeleton"></div>` : !found.length ? html`<p class="empty">None found. Open Evolution,
-                Thunderbird or Apple Calendar once, or save an .ics file in Documents, then look again.</p>
+            <p class="help">The calendars KOrganizer, Evolution (and GNOME Calendar), Thunderbird or Apple Calendar keep on
+                this machine, and .ics files in Documents, Downloads and Desktop. Calendar reads their copy and never changes
+                it, so it's as up to date as that app's last sync. Good for a work calendar that won't publish an address: sign
+                in to it in one of those apps first.</p>
+            ${!found ? html`<div class="skeleton"></div>` : !found.length ? html`<p class="empty">None found. Open KOrganizer,
+                Evolution, Thunderbird or Apple Calendar once, or save an .ics file in Documents, then look again.</p>
                 <div class="row"><button ?disabled=${this._busy} @click=${this._findLocal}>Look again</button></div>` : html`
                 <ul>${found.map(f => html`<li><label>
                     <input type="checkbox" ?disabled=${f.added || this._busy} .checked=${f.added || this._picked.has(f.source)}

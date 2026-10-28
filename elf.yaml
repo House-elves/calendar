@@ -1,9 +1,9 @@
 # A House Elves elf: what Elf Desk needs to install, set up and run calendar. AGENTS.md says what each field means.
 name: calendar
 title: Calendar
-version: 0.11.1
+version: 0.12.0
 author: "@phillip-kruger"
-description: Puts all your calendars, Gmail, Google Workspace, Office 365, iCloud, any other with an iCal address or .ics file, or the ones Evolution, Thunderbird or Apple Calendar already keep on this machine, together in one day, week or month view, with every event's details and a link to join each meeting.
+description: Puts all your calendars, Gmail, Google Workspace, Office 365, iCloud, any other with an iCal address or .ics file, or the ones Evolution, Thunderbird, Apple Calendar or KOrganizer already keep on this machine, together in one day, week or month view, with every event's details and a link to join each meeting.
 main: Calendar.java
 config: ~/.config/calendar/config
 tools: []
@@ -12,7 +12,7 @@ tools: []
 # complete. Name every place outside this machine it reaches, and say when it waits for your click.
 reads:
   - "Your calendars, through the private iCal addresses you add in its Settings, from the server each address names: Google Calendar (calendar.google.com) for Gmail and Google Workspace, Outlook (outlook.office365.com) for Office 365, iCloud, or any other. And the .ics files on this machine you add there instead, for a calendar that has no such address. It reads nothing else."
-  - "The calendars Evolution (and GNOME Calendar), Thunderbird or Apple Calendar keep on this machine, if you pick one in its Settings: it reads a copy of their files and never changes them. When you add one from On this machine there, it also lists the names of the .ics files in your Documents, Downloads and Desktop folders, so you can pick one. When you sign in to Microsoft there, it looks in Evolution's account settings for the app your organisation has Evolution sign in with, so you can use it too."
+  - "The calendars Evolution (and GNOME Calendar), Thunderbird, Apple Calendar or KOrganizer keep on this machine, if you pick one in its Settings: it reads a copy of their files and never changes them. KOrganizer's are in KDE's Akonadi database, which it only reads, through Akonadi's own socket on this machine. When you add one from On this machine there, it also lists the names of the .ics files in your Documents, Downloads and Desktop folders, so you can pick one. When you sign in to Microsoft there, it looks in Evolution's account settings for the app your organisation has Evolution sign in with, so you can use it too."
   - "Your Google calendar through Google's Calendar API (www.googleapis.com), if you sign in to Google in its Settings (at accounts.google.com, which sends your browser back to Calendar on this machine, at 127.0.0.1, for up to 5 minutes), as Thunderbird does. It asks only to read your events and who you are, so it can't change or send anything."
   - "Your Outlook calendar through Microsoft Graph (graph.microsoft.com), if you sign in to Microsoft in its Settings (at login.microsoftonline.com), as Thunderbird and Evolution do. It asks only to read your calendars and who you are, so it can't change or send anything. With an organisation's app that has a return address (as Evolution signs in), Microsoft's pass is the one that app is allowed, which could also change calendars; Calendar still only reads them."
 writes:

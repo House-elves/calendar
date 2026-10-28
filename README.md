@@ -18,8 +18,8 @@ even offline. If one calendar can't be read, it keeps showing what it read last 
 
 - **Reads:** your calendars, through the private iCal addresses you add, from the server each one names: Google
   Calendar (calendar.google.com), Outlook (outlook.office365.com), iCloud, or any other. And any `.ics` file on this
-  machine you add instead of an address. The copies Evolution (and GNOME Calendar), Thunderbird or Apple Calendar keep
-  on this machine, for the calendars you pick: it copies their database to a folder of its own and reads that, so it
+  machine you add instead of an address. The copies Evolution (and GNOME Calendar), Thunderbird, Apple Calendar or KOrganizer
+  keep on this machine, for the calendars you pick: it copies their database to a folder of its own and reads that, so it
   never changes or locks their files. And, if you sign in to Microsoft, your Outlook calendar through Microsoft
   Graph (login.microsoftonline.com, graph.microsoft.com), with permission only to read calendars. Nothing else.
 - **Writes:** nothing outside this machine. The calendars you add are kept in `~/.config/calendar/config`, and the
@@ -32,7 +32,7 @@ even offline. If one calendar can't be read, it keeps showing what it read last 
 1. On Elf Desk, click **+** and pick **Calendar**.
 2. In its **Settings**, click **Add calendar**. It asks where the calendar is, then only what that one needs. Add as
    many as you like (up to 20), one at a time; **Remove** takes one off again.
-   - **On this machine:** it lists the calendars Evolution, Thunderbird or Apple Calendar already keep here (see
+   - **On this machine:** it lists the calendars KOrganizer, Evolution, Thunderbird or Apple Calendar already keep here (see
      below), and the `.ics` files in your *Documents*, *Downloads* and *Desktop* folders (a few folders deep). Tick
      the ones you want and click **Add calendar**.
    - **Online:** give it a short name and what that one needs:
@@ -52,7 +52,7 @@ even offline. If one calendar can't be read, it keeps showing what it read last 
 
 ### From apps on this machine
 
-Evolution, Thunderbird and Apple Calendar sign in to your accounts themselves, with your organisation's blessing, and
+KOrganizer, Evolution, Thunderbird and Apple Calendar sign in to your accounts themselves, with your organisation's blessing, and
 keep a copy of each calendar on this machine. Calendar can read that copy, so a work Outlook calendar that Evolution
 shows needs no address and no admin. In Settings, click **Add calendar**, then **On this machine**, tick it and
 click **Add calendar**. It's read again at each refresh, and it's as up to date as the app's last sync, so leave the app running (or open
@@ -61,6 +61,10 @@ it now and then).
 - **Evolution** and **GNOME Calendar** (which uses Evolution's accounts), also from Flathub: every calendar it has, from
   Microsoft 365, Exchange, Google, CalDAV or kept only on this machine.
 - **Thunderbird**, also from Flathub or Snap: its calendars, from each profile.
+- **KOrganizer** (and Kontact, Merkuro: KDE's Akonadi): every calendar it has, from Google (KDE's own sign-in, which
+  a Google Workspace often allows when it turned off the secret iCal address), CalDAV, Exchange or kept only here.
+  It reads Akonadi's database through Akonadi's own socket, read-only, with the `mariadb` client (KDE's default setup),
+  or Akonadi's SQLite file. KOrganizer syncs only the calendars ticked in its Google account's settings.
 - **Apple Calendar**, on a Mac: the calendars it keeps as files in `~/Library/Calendars`. macOS asks before letting a
   program read that folder: give the program that runs Elf Desk *Full Disk Access* in *System Settings*, *Privacy &
   Security*. Newer versions of macOS keep their calendars in a database instead, which this doesn't read yet.
@@ -129,7 +133,7 @@ Anyone who has one of these addresses can read that calendar, so treat it like a
     echo '{}' | jbang Calendar.java --action=calendars
     echo '{"name":"Work"}' | jbang Calendar.java --action=microsoft-sign-in   # shows a code to type at microsoft.com/devicelogin
     echo '{}' | jbang Calendar.java --action=microsoft-check                   # once you have: adds the calendar
-    echo '{}' | jbang Calendar.java --action=local       # what Evolution, Thunderbird or Apple Calendar keep here, and .ics files
+    echo '{}' | jbang Calendar.java --action=local       # what KOrganizer, Evolution, Thunderbird or Apple Calendar keep here, and .ics files
     echo '{"name":"Work","source":"evolution:<its source>"}' | jbang Calendar.java --action=add-local
     echo '{"slot":1}' | jbang Calendar.java --action=remove
     jbang Calendar.java            # prints what it read, saves nothing

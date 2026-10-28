@@ -18,18 +18,19 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
  * Calendars another app on this machine already keeps a copy of: Evolution (and GNOME Calendar, which uses it),
- * Thunderbird and Apple Calendar. They signed in to your account, with your admin's blessing; this only reads the copy
+ * Thunderbird, Apple Calendar and KOrganizer (KDE's Akonadi). They signed in to your account, with your admin's blessing; this only reads the copy
  * they saved, so it's as fresh as their last sync. It never changes their files: a database is copied to a folder of
  * its own and read there, so the app that owns it is never locked out.
  *
  * A calendar's "address" in the config names it: evolution:<source>, thunderbird:<profile>/<calendar> or
- * apple:<folder under ~/Library/Calendars>. Only what find() finds can be added, so it can't be pointed elsewhere.
+ * apple:<folder under ~/Library/Calendars> or akonadi:<collection>. Only what find() finds can be added, so it can't be pointed elsewhere.
  */
 public class Local {
 
@@ -41,13 +42,14 @@ public class Local {
     static final Path HOME = Path.of(System.getProperty("user.home"));
 
     static boolean is(String scheme) {
-        return scheme != null && List.of("evolution", "thunderbird", "apple").contains(scheme.toLowerCase(java.util.Locale.ROOT));
+        return scheme != null && List.of("evolution", "thunderbird", "apple", "akonadi").contains(scheme.toLowerCase(java.util.Locale.ROOT));
     }
 
     static String app(String scheme) {
         return switch (scheme) {
             case "evolution" -> "Evolution";
             case "thunderbird" -> "Thunderbird";
+            case "akonadi" -> "KOrganizer";
             default -> "Apple Calendar";
         };
     }
@@ -58,6 +60,7 @@ public class Local {
         all.addAll(evolution().values());
         all.addAll(thunderbird().values());
         all.addAll(apple().values());
+        all.addAll(akonadi().values());
         all.sort(Comparator.comparing(Found::app).thenComparing(Found::name));
         return all;
     }
@@ -92,6 +95,7 @@ public class Local {
             return switch (scheme) {
                 case "evolution" -> evolutionIcs(source);
                 case "thunderbird" -> thunderbirdIcs(source);
+                case "akonadi" -> akonadiIcs(source);
                 default -> appleIcs(source);
             };
         } catch (IllegalStateException e) {
@@ -386,6 +390,165 @@ public class Local {
     }
 
     // ---- reading a copy of a database ----
+
+    // ---- KOrganizer: KDE's Akonadi keeps each event as iCalendar text, in its database or a file next to it ----
+
+    static final Path AKONADI_RC = HOME.resolve(".config/akonadi/akonadiserverrc");
+    static final Path AKONADI_FILES = HOME.resolve(".local/share/akonadi/file_db_data");
+    static final Pattern AKONADI_FILE = Pattern.compile("(\\d{1,19})_r\\d{1,9}");
+    static final String EVENT = "application/x-vnd.akonadi.calendar.event";
+
+    /** Akonadi's database: {driver, where}, MySQL (MariaDB) by its socket or SQLite by its file; null without one. */
+    static String[] akonadiDb() {
+        if (!Files.isRegularFile(AKONADI_RC)) return null;
+        Map<String, String> rc = new HashMap<>();
+        String section = "";
+        try {
+            for (String line : Files.readAllLines(AKONADI_RC, StandardCharsets.UTF_8)) {
+                line = line.strip();
+                if (line.startsWith("[")) section = line;
+                int eq = line.indexOf('=');
+                if (eq > 0) rc.putIfAbsent(section + line.substring(0, eq).strip(), line.substring(eq + 1).strip());
+            }
+        } catch (IOException e) {
+            return null;
+        }
+        String driver = rc.getOrDefault("[%General]Driver", "QMYSQL");
+        if (driver.startsWith("QSQLITE")) {
+            String name = rc.getOrDefault("[" + driver + "]Name", "");
+            Path db = name.startsWith("/") ? Path.of(name) : HOME.resolve(".local/share/akonadi/akonadi.db");
+            return Files.isRegularFile(db) ? new String[] { "sqlite", db.toString() } : null;
+        }
+        if (!driver.equals("QMYSQL")) return null;
+        Matcher m = Pattern.compile("UNIX_SOCKET=([^\",;]+)").matcher(rc.getOrDefault("[QMYSQL]Options", ""));
+        String socket = m.find() ? m.group(1).strip() : "/run/user/" + uid() + "/akonadi/mysql.socket";
+        return Files.exists(Path.of(socket)) ? new String[] { "mysql", socket } : null;
+    }
+
+    static String uid() {
+        try {
+            return String.valueOf(Files.getAttribute(HOME, "unix:uid"));
+        } catch (Exception e) {
+            return "1000";
+        }
+    }
+
+    /**
+     * Rows of a query, each column as text, from Akonadi's database. Its MySQL is asked through its own socket with the
+     * mariadb (or mysql) client, read-only, each column in hex so no text can break a row; its SQLite is copied first.
+     */
+    static List<String[]> akonadiQuery(String[] db, String sql) throws IOException, SQLException {
+        List<String[]> rows = new ArrayList<>();
+        if (db[0].equals("sqlite")) {
+            sqlite(Path.of(db[1]), c -> {
+                try (Statement st = c.createStatement(); ResultSet r = st.executeQuery(sql)) {
+                    int n = r.getMetaData().getColumnCount();
+                    while (r.next()) {
+                        String[] row = new String[n];
+                        for (int i = 0; i < n; i++) row[i] = unhex(r.getString(i + 1));
+                        rows.add(row);
+                    }
+                }
+            });
+            return rows;
+        }
+        String client = Stream.of("/usr/bin/mariadb", "/usr/bin/mysql", "/usr/local/bin/mariadb", "/usr/local/bin/mysql")
+                .filter(f -> Files.isExecutable(Path.of(f))).findFirst()
+                .orElseThrow(() -> new IOException("reading KOrganizer's calendars needs the mariadb client: install the mariadb package."));
+        Path out = Files.createTempFile("calendar-akonadi", ".txt");
+        try {
+            Process p = new ProcessBuilder(client, "--socket=" + db[1], "--batch", "--skip-column-names", "--init-command=SET SESSION TRANSACTION READ ONLY",
+                    "akonadi", "-e", sql).redirectErrorStream(true).redirectOutput(out.toFile()).start();
+            if (!p.waitFor(60, TimeUnit.SECONDS)) {
+                p.destroyForcibly();
+                throw new IOException("KOrganizer's calendars took too long to read");
+            }
+            if (Files.size(out) > 2L * Calendar.MAX_ICS_BYTES) throw new IOException("KOrganizer's calendar is too big to read");
+            List<String> lines = Files.readAllLines(out, StandardCharsets.UTF_8);
+            if (p.exitValue() != 0) throw new SQLException(lines.isEmpty() ? "no answer" : lines.get(0));
+            for (String line : lines) {
+                String[] cols = line.split("\t", -1);
+                for (int i = 0; i < cols.length; i++) cols[i] = unhex(cols[i]);
+                rows.add(cols);
+            }
+            return rows;
+        } catch (InterruptedException e) {
+            throw new IOException("Stopped before it was done");
+        } finally {
+            Files.deleteIfExists(out);
+        }
+    }
+
+    static String unhex(String hex) {
+        if (hex == null || hex.equals("NULL")) return "";
+        return new String(java.util.HexFormat.of().parseHex(hex.strip()), StandardCharsets.UTF_8);
+    }
+
+    /** Each calendar KOrganizer has, by its name there and its account's. */
+    static Map<String, Found> akonadi() {
+        Map<String, Found> found = new LinkedHashMap<>();
+        String[] db = akonadiDb();
+        if (db == null) return found;
+        try {
+            for (String[] r : akonadiQuery(db, "SELECT HEX(CAST(c.id AS CHAR)), HEX(c.name), HEX(a.value), HEX(pa.value) FROM CollectionTable c"
+                    + " JOIN CollectionMimeTypeRelation m ON m.Collection_id = c.id JOIN MimeTypeTable t ON t.id = m.MimeType_id"
+                    + " LEFT JOIN CollectionAttributeTable a ON a.collectionId = c.id AND a.type = 'ENTITYDISPLAY'"
+                    + " LEFT JOIN CollectionAttributeTable pa ON pa.collectionId = c.parentId AND pa.type = 'ENTITYDISPLAY'"
+                    + " WHERE t.name = '" + EVENT + "'")) {
+                if (!r[0].matches("\\d{1,19}")) continue;
+                String name = display(r[2], r[1]), account = display(r[3], "");
+                if (!account.isEmpty() && !account.equals(name)) name = name + " (" + account + ")";
+                found.putIfAbsent("akonadi:" + r[0], new Found("akonadi:" + r[0], "KOrganizer", Calendar.clip(name, 200)));
+            }
+        } catch (IOException | SQLException e) {
+            // KOrganizer isn't set up, or its database isn't running: nothing to pick.
+        }
+        return found;
+    }
+
+    /** A collection's name as KOrganizer shows it: the first quoted part of its ENTITYDISPLAY, else its own name. */
+    static String display(String attribute, String fallback) {
+        Matcher m = Pattern.compile("^\\(\"((?:[^\"\\\\]|\\\\.)*)\"").matcher(attribute);
+        String name = m.find() ? m.group(1).replaceAll("\\\\(.)", "$1").strip() : "";
+        return name.isEmpty() ? fallback : name;
+    }
+
+    static String akonadiIcs(String source) throws IOException, SQLException {
+        String id = source.substring("akonadi:".length());
+        if (!id.matches("\\d{1,19}")) throw new IOException("KOrganizer doesn't have that calendar any more. Remove it in Settings and add it again.");
+        String[] db = akonadiDb();
+        if (db == null) throw new IOException("KOrganizer's calendars aren't there: start KOrganizer once, then Refresh calendars.");
+        StringBuilder out = new StringBuilder("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n");
+        // Each event's iCalendar text (PLD:RFC822): in the database, or (storage 1) the name of its file in file_db_data.
+        for (String[] r : akonadiQuery(db, "SELECT HEX(CAST(p.storage AS CHAR)), HEX(p.data) FROM PimItemTable i JOIN PartTable p ON p.pimItemId = i.id"
+                + " JOIN PartTypeTable pt ON pt.id = p.partTypeId JOIN MimeTypeTable t ON t.id = i.mimeTypeId"
+                + " WHERE i.collectionId = " + id + " AND pt.ns = 'PLD' AND pt.name = 'RFC822' AND t.name = '" + EVENT + "'")) {
+            String text = r[1];
+            if (r[0].equals("1")) {
+                Matcher f = AKONADI_FILE.matcher(text.strip());
+                if (!f.matches()) continue;
+                String num = f.group(1);
+                Path file = AKONADI_FILES.resolve(num.length() < 2 ? "0" + num : num.substring(num.length() - 2)).resolve(f.group());
+                if (!Files.isRegularFile(file) || Files.size(file) > 5_000_000) continue;
+                text = Files.readString(file, StandardCharsets.UTF_8);
+            }
+            append(out, inner(text));
+        }
+        return out.append("END:VCALENDAR\r\n").toString();
+    }
+
+    /** What's inside one iCalendar's VCALENDAR: its events and time zones, without its own VERSION and PRODID. */
+    static String inner(String ical) {
+        StringBuilder out = new StringBuilder();
+        int depth = 0;
+        for (String line : ical.split("\r?\n")) {
+            boolean begin = line.regionMatches(true, 0, "BEGIN:", 0, 6), end = line.regionMatches(true, 0, "END:", 0, 4);
+            if (begin) depth++;
+            if (depth >= 2) out.append(line).append("\r\n");
+            if (end) depth--;
+        }
+        return out.toString();
+    }
 
     interface Use {
         void with(Connection db) throws SQLException;
