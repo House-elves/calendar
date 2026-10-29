@@ -76,6 +76,7 @@ class CalendarTab extends LitElement {
         _at: { state: true },
         _hidden: { state: true },
         _open: { state: true },
+        _allDay: { state: true },   // the all-day row open (it starts folded to a count a day)
     };
 
     static styles = [shared, css`
@@ -98,6 +99,14 @@ class CalendarTab extends LitElement {
         .head .today { color: var(--accent); font-weight: 600; }
         .allday { display: grid; border-bottom: 1px solid var(--line); min-height: 6px; }
         .allday div { padding: 3px; display: grid; gap: 3px; align-content: start; }
+        .allday .fold { width: 28px; height: 24px; padding: 0; margin: 0 auto; border: 0; background: transparent; color: var(--muted);
+            display: grid; place-items: center; cursor: pointer; border-radius: 6px; }
+        .allday .fold svg { width: 14px; height: 14px; transition: transform 0.15s; }
+        .allday .fold[aria-expanded="true"] svg { transform: rotate(90deg); }
+        .allday .count { padding: 3px 7px; border: 0; border-radius: 6px; background: var(--surface-2); color: var(--muted);
+            font-size: 12px; text-align: left; cursor: pointer; }
+        .allday .fold:hover, .allday .count:hover { color: var(--ink); }
+        @media (prefers-reduced-motion: reduce) { .allday .fold svg { transition: none; } }
         .scroll { max-height: 64vh; overflow-y: auto; }
         .hours { display: grid; position: relative; }
         .hour { height: 48px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); padding: 2px 6px; box-sizing: border-box; }
@@ -237,6 +246,24 @@ class CalendarTab extends LitElement {
         return out;
     }
 
+    /**
+     * The all-day row: folded (as it starts), a count a day, so the hours start higher up; open, each event. The arrow
+     * in its corner, or a count, opens it.
+     */
+    _allDayRow(lists, cols) {
+        if (!lists.some(([all]) => all.length)) return html`<div class="allday" style="grid-template-columns:${cols}"><div></div>${lists.map(() => html`<div></div>`)}</div>`;
+        const open = !!this._allDay;
+        const toggle = () => { this._allDay = !open; };
+        return html`<div class="allday" style="grid-template-columns:${cols}">
+            <div><button class="fold" aria-expanded=${open ? 'true' : 'false'} aria-label="All-day events"
+                title=${open ? 'Fold the all-day events' : 'Show the all-day events'} @click=${toggle}><svg viewBox="0 0 16 16" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path
+                d="M6 3l5 5-5 5"/></svg></button></div>
+            ${lists.map(([all]) => html`<div>${open ? all.map(e => this._chip(e, false))
+                : all.length ? html`<button class="count" title=${all.map(e => e.title).join('\n')} @click=${toggle}>${all.length} all day</button>` : ''}</div>`)}
+        </div>`;
+    }
+
     _days(days) {
         const now = new Date();
         const cols = `52px repeat(${days.length}, minmax(0, 1fr))`;
@@ -244,7 +271,7 @@ class CalendarTab extends LitElement {
         return html`<div class="panel grid">
             <div class="head" style="grid-template-columns:${cols}"><div></div>${days.map(d => html`<div class=${sameDay(d, now) ? 'today' : ''}>
                 ${d.toLocaleDateString([], days.length > 1 ? { weekday: 'short', day: 'numeric' } : { weekday: 'long', day: 'numeric', month: 'long' })}</div>`)}</div>
-            <div class="allday" style="grid-template-columns:${cols}"><div></div>${lists.map(([all]) => html`<div>${all.map(e => this._chip(e, false))}</div>`)}</div>
+            ${this._allDayRow(lists, cols)}
             <div class="scroll">
                 <div class="hours" style="grid-template-columns:${cols}">
                     <div>${Array.from({ length: 24 }, (_, h) => html`<div class="hour">${String(h).padStart(2, '0')}:00</div>`)}</div>

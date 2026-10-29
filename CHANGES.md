@@ -3,6 +3,11 @@
 What changed for you in each version of Calendar, newest first. The desk shows the parts that are new when it offers
 you an update.
 
+## 0.14.0
+
+- The all-day events in Week and Day start folded to a count a day ("5 all day"), so the hours start higher up. The
+  arrow in the corner, or a count, opens them; hover a count to see what's in it.
+
 ## 0.13.0
 
 - New: pick each calendar's colour when you add it, from ten or any colour of your own. It starts on one no other
